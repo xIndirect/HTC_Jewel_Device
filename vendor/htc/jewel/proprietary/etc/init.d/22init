@@ -1,0 +1,11 @@
+#!/system/bin/sh
+#created by -viperboy-
+
+#enable alogcat to read system logs
+pm grant org.jtb.alogcat android.permission.READ_LOGS
+
+#Widget Scanner to fix Widget FCs
+#credit Patrics83
+if [ -f "/data/data/com.htc.launcher/shared_prefs/WidgetScanner.xml" ]; then
+    sed -i 's/boolean name="initialized" value="true"/boolean name="initialized" value="false"/g' /data/data/com.htc.launcher/shared_prefs/WidgetScanner.xml
+fi

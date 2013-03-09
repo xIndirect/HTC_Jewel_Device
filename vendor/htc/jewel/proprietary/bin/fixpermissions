@@ -1,0 +1,64 @@
+#!/system/bin/sh
+
+pressenter ()
+{
+	echo
+	echo -n "Press Enter to continue..."
+	read key
+}
+
+echo
+CODEPATH="";
+UID="";
+PACKAGE="";
+IS_PROTECTED="0";
+
+cat /data/system/packages.xml | grep "^<package" | grep userId | while read line;
+do
+	for i in `echo $line | tr " " "\n"`;
+	do
+		if [ $i = "<package" ];
+		then
+			CODEPATH="";
+			PACKAGE="";
+			UID="";
+		elif ( echo $i | grep "^codePath" > /dev/null );
+		then
+			CODEPATH=`echo $i | cut -d \" -f 2`;
+		elif ( echo $i | grep "^name" > /dev/null );
+		then
+			PACKAGE=`echo $i | cut -d \" -f 2`;
+		elif ( echo $i | grep "^userId" > /dev/null );
+		then
+			UID=`echo $i | cut -d \" -f 2`;
+		fi;
+	
+		APPDIR=`echo $CODEPATH | cut -d / -f 3`;
+		if [ "$APPDIR" = "app-private" ];
+		then
+			IS_PROTECTED=1;
+		else
+			IS_PROTECTED=0;
+		fi
+
+	done;
+
+	echo "Fixing permissions for: $PACKAGE";
+
+	if [ $IS_PROTECTED = "1" ];
+	then
+		busybox chown 1000:$UID $CODEPATH;
+	else
+		busybox chown $UID:$UID $CODEPATH;
+	fi;
+
+	busybox chown $UID:$UID /data/data/$PACKAGE;
+
+	for dir in databases shared_prefs;
+	do
+		if [ -d /data/data/$PACKAGE/$dir ];
+		then
+			busybox chown -R $UID:$UID /data/data/$PACKAGE/$dir;
+		fi;
+	done	
+done;

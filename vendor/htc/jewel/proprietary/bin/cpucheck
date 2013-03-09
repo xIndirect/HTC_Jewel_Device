@@ -1,0 +1,58 @@
+#!/system/bin/sh
+#created by -viperboy-
+
+sleeptime=1
+
+while : ; do
+	cpuspeed=`cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq`
+	echo "=========================="
+	echo -n "CPU0: |"
+	if [ `cat /sys/devices/system/cpu/cpu0/online` = 1 ]; then
+		echo -n "ON |"
+		if [ `ls /sys/devices/system/cpu/cpu0/cpufreq | grep -c scaling_cur_freq` = 1 ]; then
+			echo -n " |MHz: $cpuspeed"
+			echo "|"
+		fi
+	else
+		echo "OFF|"
+	fi
+	if [ -e /sys/devices/system/cpu/cpu1 ]; then
+		echo -n "CPU1: |"
+		if [ `cat /sys/devices/system/cpu/cpu1/online` = 1 ]; then
+			echo -n "ON |"
+			if [ `ls /sys/devices/system/cpu/cpu0/cpufreq | grep -c scaling_cur_freq` = 1 ]; then
+				echo -n " |MHz: $cpuspeed"
+				echo "|"
+			fi
+		else
+			echo "OFF|"
+		fi
+	fi
+	if [ -e /sys/devices/system/cpu/cpu2 ]; then
+		echo -n "CPU2: |"
+		if [ `cat /sys/devices/system/cpu/cpu2/online` = 1 ]; then
+			echo -n "ON |"
+			if [ `ls /sys/devices/system/cpu/cpu0/cpufreq | grep -c scaling_cur_freq` = 1 ]; then
+				echo -n " |MHz: $cpuspeed"
+				echo "|"
+			fi
+		else
+			echo "OFF|"
+		fi
+	fi
+	if [ -e /sys/devices/system/cpu/cpu3 ]; then
+		echo -n "CPU3: |"
+		if [ `cat /sys/devices/system/cpu/cpu3/online` = 1 ]; then
+			echo -n "ON |"
+			if [ `ls /sys/devices/system/cpu/cpu0/cpufreq | grep -c scaling_cur_freq` = 1 ]; then
+				echo -n " |MHz: $cpuspeed"
+				echo "|"
+			fi
+		else
+			echo "OFF|"
+		fi
+	fi
+	echo "=========================="
+	echo
+	sleep $sleeptime
+done

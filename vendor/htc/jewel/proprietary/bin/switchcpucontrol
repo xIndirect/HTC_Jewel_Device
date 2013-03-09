@@ -1,0 +1,134 @@
+#!/system/bin/sh
+
+pressenter ()
+{
+	echo
+	echo -n "Press Enter to continue..."
+	read key
+}
+
+enableviperdaemon ()
+{
+	echo
+	echo "This will hide the CPU tab in VenomTweaks as well!"
+	echo
+	echo -n "Press Enter to continue..."
+	read key
+	echo
+	sed -i 's/vc.cpu.control.*/vc.cpu.control=2/g' /system/build.prop
+	sed -i "s/<screen name='cpu' remove='false'/<screen name='cpu' remove='true'/g" /system/customize/tweaks.xml	
+	echo "viperDaemon selected!"
+	echo
+	echo -n "You must reboot now. Rebooting in 5 sec..."
+	sleep 5
+	busybox reboot -f
+}
+
+enableocdaemon ()
+{
+	echo
+	echo "This will hide the CPU tab in VenomTweaks as well!"
+	echo
+	echo -n "Press Enter to continue..."
+	read key
+	echo
+	sed -i 's/vc.cpu.control.*/vc.cpu.control=1/g' /system/build.prop
+	sed -i "s/<screen name='cpu' remove='false'/<screen name='cpu' remove='true'/g" /system/customize/tweaks.xml	
+	echo "oc_daemon selected!"
+	echo
+	echo -n "You must reboot now. Rebooting in 5 sec..."
+	sleep 5
+	busybox reboot -f
+}
+
+disablealldaemons ()
+{
+	echo
+	echo "This will enable the CPU tab in VenomTweaks as well!"
+	echo
+	echo -n "Press Enter to continue..."
+	read key
+	echo
+	sed -i 's/vc.cpu.control.*/vc.cpu.control=0/g' /system/build.prop
+	sed -i "s/<screen name='cpu' remove='true'/<screen name='cpu' remove='false'/g" /system/customize/tweaks.xml	
+	echo "All daemons disabled!"
+	echo
+	echo -n "You must reboot now. Rebooting in 5 sec..."
+	sleep 5
+	busybox reboot -f
+}
+
+while : ; 
+do
+echo "================================================="
+echo "                 CPU Controller                  "
+echo "================================================="
+echo
+cpudaemon=none
+if [ `/system/bin/ps | grep virtuous | wc -l` = '1' ]; then
+	echo "oc_daemon is running!"
+	export sleepmin=$(cat /system/etc/virtuous_oc/sleep_min_freq)
+	export sleepmax=$(cat /system/etc/virtuous_oc/sleep_max_freq)
+	export sleepgov=$(cat /system/etc/virtuous_oc/sleep_governor)
+	export awakemin=$(cat /system/etc/virtuous_oc/wake_min_freq)
+	export awakemax=$(cat /system/etc/virtuous_oc/wake_max_freq)
+	export awakegov=$(cat /system/etc/virtuous_oc/wake_governor)
+	set cpudaemon=virtuous
+	cpudaemon=virtuous
+fi
+if [ `busybox ps | grep viperDaemon | grep -v grep | wc -l` -ge '1' ]; then
+	echo "viperDaemon is running!"
+	defaultconf=/data/local/dcm/config/default.conf
+	export disable_cpu1_screen_off_check=`cat $defaultconf | grep disable_cpu1_screen_off | cut -d = -f 2`
+	export min_awake_freq_check=`cat $defaultconf | grep min_awake_freq | cut -d = -f 2`
+	export max_awake_freq_check=`cat $defaultconf | grep max_awake_freq | cut -d = -f 2`
+	export min_sleep_freq_check=`cat $defaultconf | grep min_sleep_freq | cut -d = -f 2`
+	export max_sleep_freq_check=`cat $defaultconf | grep max_sleep_freq | cut -d = -f 2`
+	export awake_governor_check=`cat $defaultconf | grep awake_governor | cut -d = -f 2`
+	export sleep_governor_check=`cat $defaultconf | grep sleep_governor | cut -d = -f 2`
+	set cpudaemon=viper
+	cpudaemon=viper
+fi
+if [ $cpudaemon = "none" ]; then
+	echo "No CPU daemons running!"	
+	set cpudaemon=none
+fi
+echo
+if [ $cpudaemon = "virtuous" ]; then
+	echo "1) Switch to viperDaemon"
+	echo
+	echo "2) Disable all daemons"
+elif [ $cpudaemon = "viper" ]; then
+	echo "1) Switch to oc_daemon"
+	echo
+	echo "2) Disable all daemons"
+elif [ $cpudaemon = "none" ]; then
+	echo "1) Enable viperDaemon"
+	echo "2) Enable oc_daemon"
+fi
+echo
+echo -n "Please choose an option (Enter to exit): "
+read option
+if [ -z $option ]; then
+	option=e
+fi
+case $option in
+	1)	if [ $cpudaemon = "virtuous" ] || [ $cpudaemon = "none" ]; then
+			enableviperdaemon
+		elif [ $cpudaemon = "viper" ]; then
+			enableocdaemon
+		fi
+		;;
+	2)	if [ $cpudaemon = "virtuous" ] || [ $cpudaemon = "viper" ]; then
+			disablealldaemons
+		elif [ $cpudaemon = "none" ]; then
+			enableocdaemon
+		fi
+		;;
+	e)	break
+		;;
+	*)	echo "Invalid option!"
+		pressenter
+		;;
+esac
+done

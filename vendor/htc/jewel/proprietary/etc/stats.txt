@@ -1,0 +1,4 @@
+#made by -viperboy-
+ 
+BOOT_COUNT=0
+LAST_BOOT=0

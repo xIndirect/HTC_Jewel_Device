@@ -1,0 +1,934 @@
+#!/system/bin/sh
+#created by -viperboy-
+
+#todo:
+#fix not updating until restart menu
+#don't allow run without id = root
+#check broken pipe error
+
+rootcheck ()
+{
+	if [ `id | cut -d \( -f 2 | cut -d \) -f 1` != "root" ]; then
+		echo "This script must be run as root! Please do the following:"
+		echo
+		echo "Type \"su\" (no quotes) and then re-run the script"
+		echo
+		exit
+	fi
+}
+
+pressenter ()
+{
+	echo
+	echo -n "Press Enter to continue..."
+	read key
+}
+
+dcmsettings ()
+{
+	echo -n "Disable CPU1 when Screen Off: "
+	if [ $disable_cpu1_screen_off_check = '1' ]; then
+		echo "Yes"
+	elif [ $disable_cpu1_screen_off_check = '0' ]; then
+		echo "No"
+	else
+		echo "UNKNOWN"
+	fi
+	echo
+	echo "Awake governor: $awake_governor_check"
+	echo "Max Awake Freq: $max_awake_freq_check"
+	echo "Min Awake Freq: $min_awake_freq_check"
+	echo
+	echo "Sleep governor: $sleep_governor_check"
+	echo "Max Sleep Freq: $max_sleep_freq_check"
+	echo "Min Sleep Freq: $min_sleep_freq_check"
+	echo "======================================="
+}
+
+dcminit ()
+{
+	if [ ! -e /data/local/dcm ] || [ ! -e /data/local/dcm/config ] || [ ! -e $defaultconf ]; then
+		echo
+		echo "Please wait, initializing..."
+		echo
+		mkdir -p /data/local/dcm
+		mkdir -p /data/local/dcm/config
+		make_defaultconf
+		sleep 1
+	fi
+}
+
+make_defaultconf ()
+{
+	echo "#default.conf" > $defaultconf
+	echo -n "#" >> $defaultconf
+	echo "`date`" >> $defaultconf
+	echo "#created by -viperboy-'s DCMControl" >> $defaultconf
+	echo "" >> $defaultconf
+	echo "CPU Options" >> $defaultconf
+	echo "============================" >> $defaultconf
+	echo "disable_cpu1_screen_off=1" >> $defaultconf
+	echo "" >> $defaultconf
+	echo "awake_governor=ondemand" >> $defaultconf
+	echo "max_awake_freq=1512000" >> $defaultconf
+	echo "min_awake_freq=384000" >> $defaultconf
+	echo "" >> $defaultconf
+	echo "sleep_governor=ondemand" >> $defaultconf
+	echo "max_sleep_freq=486000" >> $defaultconf
+	echo "min_sleep_freq=384000" >> $defaultconf
+	echo "============================" >> $defaultconf
+	echo "" >> $defaultconf
+	echo "Ondemand Governor Options" >> $defaultconf
+	echo "============================" >> $defaultconf
+	echo "sampling_rate_awake=40000" >> $defaultconf
+	echo "up_threshold_awake=80" >> $defaultconf
+	echo "down_differential_awake=12" >> $defaultconf
+	echo "sampling_down_factor_awake=3" >> $defaultconf
+	echo "" >> $defaultconf
+	echo "sampling_rate_sleep=80000" >> $defaultconf
+	echo "up_threshold_sleep=95" >> $defaultconf
+	echo "down_differential_sleep=5" >> $defaultconf
+	echo "sampling_down_factor_sleep=1" >> $defaultconf
+	echo "============================" >> $defaultconf
+}
+	
+view_configs ()
+{
+	echo
+	echo "===================================="
+	echo "Current configs"
+	echo "===================================="
+	ls -l $configdir
+	echo "===================================="
+	cat $defaultconf
+	echo
+	echo -n "Press Enter to continue..."
+	read key
+
+}
+
+availfreq ()
+{
+	if [ -e /sys/devices/system/cpu/cpu0/cpufreq/scaling_available_frequencies ]; then
+		cpufreqarray=(`cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_available_frequencies`)
+		len=${#cpufreqarray[*]}
+		echo
+		echo "There are $len frequencies to choose from!"
+		echo
+		i=0
+		while [ $i -lt $len ]; do
+		echo "$i: ${cpufreqarray[$i]}"
+		let i++
+		done
+		echo
+	else
+		echo "Cannot read list of frequencies! Please let"
+		echo "-viperboy- know this ASAP!"
+	fi
+}
+
+availgov ()
+{
+	if [ -e /sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors ]; then
+		govarray=(`cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors`)
+		len=${#govarray[*]}
+		echo
+		echo "There are $len governors to choose from!"
+		echo
+		i=0
+		while [ $i -lt $len ]; do
+		echo "$i: ${govarray[$i]}"
+		let i++
+		done
+		echo
+	else
+		echo "Cannot read list of governors! Please let"
+		echo "a Team Venom dev know ASAP!"
+	fi
+}
+
+restart_viperdaemon_quiet ()
+{
+	pid=`busybox ps -o pid,args | awk '/viperDaemon/ { print $1 }'`
+	for i in $pid
+	do
+		kill -9 $pid > /dev/null 2>&1
+	done
+	if [ `busybox ps | grep viperDaemon | wc -l` -le "1" ]; then
+		log -p i -t DCM " "
+		log -p i -t DCM "******                                ******"
+		log -p i -t DCM "****** viperDaemon killed! (silently) ******"
+		log -p i -t DCM "******                                ******"
+	else
+		log -p i -t DCM " "
+		log -p i -t DCM "******                         ******"
+		log -p i -t DCM "****** viperDaemon kill error! ******"
+		log -p i -t DCM "******                         ******"
+		break
+	fi
+	/system/bin/viperDaemon &
+	log -p i -t DCM " "
+	log -p i -t DCM "******                                   ******"
+	log -p i -t DCM "****** viperDaemon Restarted! (silently) ******"
+	log -p i -t DCM "******                                   ******"
+	
+}
+
+cpu_options ()
+{
+	while : ; do
+	echo
+	if [ $disable_cpu1_screen_off_check = "0" ]; then
+		disable_cpu1_screen_off_status=No
+	elif [ $disable_cpu1_screen_off_check = "1" ]; then
+		disable_cpu1_screen_off_status=Yes
+	else
+		disable_cpu1_screen_off_status=UNKNOWN
+	fi
+	echo "======================================="
+	echo "|                                     |"
+	echo "|             CPU Options             |"
+	echo "|                                     |"
+	echo "======================================="
+	echo "Disable CPU1 when Screen Off: $disable_cpu1_screen_off_status"
+	echo
+	echo "Awake governor: $awake_governor_check"
+	echo "Max Awake Freq: $max_awake_freq_check"
+	echo "Min Awake Freq: $min_awake_freq_check"
+	echo
+	echo "Sleep governor: $sleep_governor_check"
+	echo "Max Sleep Freq: $max_sleep_freq_check"
+	echo "Min Sleep Freq: $min_sleep_freq_check"
+	echo "======================================="
+	echo
+	echo "1) Frequency and governor settings"
+	echo "2) CPU1 settings"
+	echo
+	echo -n "Please choose an option (Enter to exit): "
+	read option
+	if [ -z $option ]; then
+		option=quit
+	fi
+	case $option in
+		2)	while : ; do
+			echo
+			unset disable_cpu1_screen_off_status
+			unset disable_cpu1_screen_off_check
+			export disable_cpu1_screen_off_check=`cat $defaultconf | grep disable_cpu1_screen_off | cut -d = -f 2`
+			if [ $disable_cpu1_screen_off_check = "0" ]; then
+				disable_cpu1_screen_off_status=No
+			elif [ $disable_cpu1_screen_off_check = "1" ]; then
+				disable_cpu1_screen_off_status=Yes
+			else
+				disable_cpu1_screen_off_status=UNKNOWN
+			fi
+			echo "===================================="
+			echo "Disable CPU1 when Screen off: $disable_cpu1_screen_off_status"
+			echo "===================================="
+			echo
+			echo "1) Change CPU1 behavior when screen off"
+			echo
+			echo -n "Please select and option (Enter to exit): "
+			read option
+			if [ -z $option ]; then
+				echo
+				echo "Nothing changed!"
+				pressenter
+				break
+			fi
+			case $option in
+				1)	if [ $disable_cpu1_screen_off_check = "1" ]; then
+							sed -i 's/disable_cpu1_screen_off=1/disable_cpu1_screen_off=0/g' $defaultconf
+						else
+							sed -i 's/disable_cpu1_screen_off=0/disable_cpu1_screen_off=1/g' $defaultconf
+						fi
+						unset disable_cpu1_screen_off_status
+						unset disable_cpu1_screen_off_check
+						export disable_cpu1_screen_off_check=`cat $defaultconf | grep disable_cpu1_screen_off | cut -d = -f 2`
+						sleep 1
+						restart_viperdaemon_quiet
+						echo
+						if [ $disable_cpu1_screen_off_check = "1" ]; then
+							echo "CPU1 disabled when screen off!"
+						elif [ $disable_cpu1_screen_off_check = "0" ]; then
+							echo "CPU1 enabled when screen off!"
+						fi
+						echo
+						echo -n "Press Enter to continue..."
+						read key
+						;;
+				*)		echo
+						echo "Invalid option, please try again."
+						echo
+						echo -n "Press Enter to continue..."
+						read key
+						;;
+			esac
+			done
+			;;
+		1)	while : ; do
+			echo
+			echo "======================================="
+			dcmsettings
+			echo
+			echo "1) Set Awake Governor"
+			echo "2) Set Max Awake Freq"
+			echo "3) Set Min Awake Freq"
+			echo
+			echo "4) Set Sleep Governor"
+			echo "5) Set Max Sleep Freq"
+			echo "6) Set Min Sleep Freq"
+			echo
+			echo -n "Please choose an option (Enter to exit): "
+			read option
+			case $option in
+				1)	while : ; do
+					echo "Current Awake Governor"
+					echo "======================"
+					echo $awake_governor_check
+					echo "======================"
+					echo
+					echo "Available Governors"
+					echo "======================================================="
+					availgov
+					echo "======================================================="
+					echo
+					echo -n "Please type an Awake Governor (Enter to exit): "
+					read awake_governor
+					if [ -z $awake_governor ]; then
+						echo
+						echo "Nothing changed!"
+						pressenter
+						break
+					elif [ -z "${govarray[$awake_governor]}" ]; then
+							echo "Not a valid selection!"
+							pressenter
+					else
+						sed -i "s/awake_governor=.*/awake_governor=${govarray[$awake_governor]}/g" $defaultconf
+						echo "Awake Governor set to ${govarray[$awake_governor]}"
+						unset awake_governor_check
+						export awake_governor_check=`cat $defaultconf | grep awake_governor | cut -d = -f 2`
+						sleep 1
+						pressenter
+						restart_viperdaemon_quiet
+						break
+					fi
+					done
+					;;
+				2)	while : ; do
+					echo "Current Max Awake Freq"
+					echo "======================"
+					echo $max_awake_freq_check
+					echo "======================"
+					echo
+					echo "Available Frequencies"
+					echo "=============================================="
+					availfreq
+					echo "=============================================="
+					echo
+					echo -n "Please enter a Max Awake freq (Enter to exit): "
+					read max_awake_freq					
+					if [ -z $max_awake_freq ]; then
+						echo
+						echo "Nothing changed!"
+						pressenter
+						break
+					elif [ -z "${cpufreqarray[$max_awake_freq]}" ]; then
+							echo "Not a valid selection!"
+							pressenter
+					elif [ ${cpufreqarray[$max_awake_freq]} -lt $min_awake_freq_check ]; then
+							echo
+							echo "Max Awake freq cannot be less than Min Awake Freq, aborting!"
+							pressenter
+							break
+					else
+						sed -i "s/max_awake_freq=.*/max_awake_freq=${cpufreqarray[$max_awake_freq]}/g" $defaultconf
+						echo "Max Awake Freq set to ${cpufreqarray[$max_awake_freq]}!"
+						unset max_awake_freq_check
+						export max_awake_freq_check=`cat $defaultconf | grep max_awake_freq | cut -d = -f 2`
+						sleep 1
+						pressenter
+						restart_viperdaemon_quiet
+						break
+					fi
+					done
+					;;
+				3)	while : ; do
+					echo "Current Min Awake Freq"
+					echo "======================"
+					echo $min_awake_freq_check
+					echo "======================"
+					echo
+					echo "Available Frequencies"
+					echo "=============================================="
+					availfreq
+					echo "=============================================="
+					echo
+					echo -n "Please enter a Min Awake freq (Enter to exit): "
+					read min_awake_freq
+					if [ -z $min_awake_freq ]; then
+						echo
+						echo "Nothing changed!"
+						pressenter
+						break
+					elif [ -z "${cpufreqarray[$min_awake_freq]}" ]; then
+							echo "Not a valid selection!"
+							pressenter
+					elif [ ${cpufreqarray[$min_awake_freq]} -gt $max_awake_freq_check ]; then
+							echo
+							echo "Min Awake freq cannot be greater than Max Awake Freq, aborting!"
+							pressenter
+							break
+					else
+						sed -i "s/min_awake_freq=.*/min_awake_freq=${cpufreqarray[$min_awake_freq]}/g" $defaultconf
+						echo "Min Awake Freq set to ${cpufreqarray[$min_awake_freq]}"
+						unset min_awake_freq_check
+						export min_awake_freq_check=`cat $defaultconf | grep min_awake_freq | cut -d = -f 2`
+						sleep 1
+						pressenter
+						restart_viperdaemon_quiet
+						break
+					fi
+					done
+					;;
+				4)	while : ; do
+					echo "Current Sleep Governor"
+					echo "======================"
+					echo $sleep_governor_check
+					echo "======================"
+					echo
+					echo "Available Governors"
+					echo "======================================================="
+					availgov
+					echo "======================================================="
+					echo
+					echo -n "Please type an Awake Governor (Enter to exit): "
+					read sleep_governor
+					if [ -z $sleep_governor ]; then
+						echo
+						echo "Nothing changed!"
+						pressenter
+						break
+					elif [ -z "${govarray[$sleep_governor]}" ]; then
+							echo "Not a valid selection!"
+							pressenter
+					else
+						sed -i "s/sleep_governor=.*/sleep_governor=${govarray[$sleep_governor]}/g" $defaultconf
+						echo "Awake Governor set to ${govarray[$sleep_governor]}"
+						unset sleep_governor_check
+						export sleep_governor_check=`cat $defaultconf | grep sleep_governor | cut -d = -f 2`
+						sleep 1
+						pressenter
+						restart_viperdaemon_quiet
+						break
+					fi
+					done
+					;;
+				5)	while : ; do
+					echo "Current Max Sleep Freq"
+					echo "======================"
+					echo $max_sleep_freq_check
+					echo "======================"
+					echo
+					echo "Available Frequencies"
+					echo "=============================================="
+					availfreq
+					echo "=============================================="
+					echo
+					echo -n "Please enter a Max Sleep freq (Enter to exit): "
+					read max_sleep_freq					
+					if [ -z $max_sleep_freq ]; then
+						echo
+						echo "Nothing changed!"
+						pressenter
+						break
+					elif [ -z "${cpufreqarray[$max_sleep_freq]}" ]; then
+							echo "Not a valid selection!"
+							pressenter
+					elif [ ${cpufreqarray[$max_sleep_freq]} -lt $min_sleep_freq_check ]; then
+							echo
+							echo "Max Sleep freq cannot be less than Min Sleep Freq, aborting!"
+							pressenter
+							break
+					else
+						sed -i "s/max_sleep_freq=.*/max_sleep_freq=${cpufreqarray[$max_sleep_freq]}/g" $defaultconf
+						echo "Max Sleep Freq set to ${cpufreqarray[$max_sleep_freq]}"
+						unset max_sleep_freq_check
+						export max_sleep_freq_check=`cat $defaultconf | grep max_sleep_freq | cut -d = -f 2`
+						sleep 1
+						pressenter
+						restart_viperdaemon_quiet
+						break
+					fi
+					done
+					;;
+				6)	while : ; do
+					echo "Current Min Sleep Freq"
+					echo "======================"
+					echo $min_sleep_freq_check
+					echo "======================"
+					echo
+					echo "Available Frequencies"
+					echo "=============================================="
+					availfreq
+					echo "=============================================="
+					echo
+					echo -n "Please enter a Min Sleep freq (Enter to exit): "
+					read min_sleep_freq
+					
+					if [ -z $min_sleep_freq ]; then
+						echo
+						echo "Nothing changed!"
+						pressenter
+						break
+					elif [ -z "${cpufreqarray[$min_sleep_freq]}" ]; then
+							echo "Not a valid selection!"
+							pressenter
+					elif [ ${cpufreqarray[$min_sleep_freq]} -gt $max_sleep_freq_check ]; then
+							echo
+							echo "Min Sleep freq cannot be greater than Max Sleep Freq, aborting!"
+							pressenter
+							break
+					else
+						sed -i "s/min_sleep_freq=.*/min_sleep_freq=${cpufreqarray[$min_sleep_freq]}/g" $defaultconf
+						echo "Min Sleep Freq set to ${cpufreqarray[$min_sleep_freq]}"
+						unset min_sleep_freq_check
+						export min_sleep_freq_check=`cat $defaultconf | grep min_sleep_freq | cut -d = -f 2`
+						sleep 1
+						pressenter
+						restart_viperdaemon_quiet
+						break
+					fi
+					done
+					;;
+				*)	echo
+					echo "Exiting!"
+					break
+					;;
+			esac
+			done
+			;;
+		quit)	echo "Exiting!"
+				echo
+				break
+				;;
+		esac
+	done
+}
+
+governor_tweaks ()
+{
+	while : ; do
+	echo
+	sampling_rate_awake_check=`cat $defaultconf | grep sampling_rate_awake | cut -d = -f 2`
+	up_threshold_awake_check=`cat $defaultconf | grep up_threshold_awake | cut -d = -f 2`
+	down_differential_awake_check=`cat $defaultconf | grep down_differential_awake | cut -d = -f 2`
+	sampling_down_factor_awake_check=`cat $defaultconf | grep sampling_down_factor_awake | cut -d = -f 2`
+	sampling_rate_sleep_check=`cat $defaultconf | grep sampling_rate_sleep | cut -d = -f 2`
+	up_threshold_sleep_check=`cat $defaultconf | grep up_threshold_sleep | cut -d = -f 2`
+	down_differential_sleep_check=`cat $defaultconf | grep down_differential_sleep | cut -d = -f 2`
+	sampling_down_factor_sleep_check=`cat $defaultconf | grep sampling_down_factor_sleep | cut -d = -f 2`
+	echo "======================================="
+	echo "|           Governor Tweaks           |"
+	echo "======================================="
+	echo "sampling_rate_awake:        $sampling_rate_awake_check"
+	echo "up_threshold_awake:         $up_threshold_awake_check"
+	echo "down_differential_awake:    $down_differential_awake_check"
+	echo "sampling_down_factor_awake: $sampling_down_factor_awake_check"
+	echo
+	echo "sampling_rate_sleep:        $sampling_rate_sleep_check"
+	echo "up_threshold_sleep:         $up_threshold_sleep_check"
+	echo "down_differential_sleep:    $down_differential_sleep_check"
+	echo "sampling_down_factor_sleep: $sampling_down_factor_sleep_check"
+	echo "======================================="
+	echo "1) Set sampling_rate_awake"
+	echo "2) Set up_threshold_awake"
+	echo "3) Set down_differential_awake"
+	echo "4) Set sampling_down_factor_awake"
+	echo
+	echo "5) Set sampling_rate_sleep"
+	echo "6) Set up_threshold_sleep"
+	echo "7) Set down_differential_sleep"
+	echo "8) Set sampling_down_factor_sleep"
+	echo
+	echo -n "Please choose an option (Enter to exit): "
+	read option
+	case $option in
+		1)	while : ; do
+			echo "Current sampling_rate_awake"
+			echo "======================"
+			echo $sampling_rate_awake_check
+			echo "======================"
+			echo
+			echo -n "Please enter a new sampling_rate_awake (Enter to exit): " | fold -sw 60
+			read sampling_rate_awake
+			if [ -z $sampling_rate_awake ]; then
+				echo "Exiting..."
+				echo
+				break
+			fi
+			if [ $sampling_rate_awake -lt "10000" ]; then
+				echo "sampling_rate must be a numeric value greater than or equal to 10000, please try again!" | fold -sw 60
+			elif [ $sampling_rate_awake -gt "300000" ]; then
+				echo "sampling_rate must be a numeric value less than or equal to 300000, please try again!" | fold -sw 60
+			else
+				sed -i "s/sampling_rate_awake=.*/sampling_rate_awake=$sampling_rate_awake/g" $defaultconf
+				echo "sampling_rate_awake set to $sampling_rate_awake!"
+			fi
+			echo
+			echo -n "Press Enter to continue..."
+			read key
+			restart_viperdaemon_quiet
+			break
+			done
+			;;
+		2)	while : ; do
+			echo "Current up_threshold_awake"
+			echo "======================"
+			echo $up_threshold_awake_check
+			echo "======================"
+			echo
+			echo -n "Please enter a new up_threshold_awake (Enter to exit): " | fold -sw 60
+			read up_threshold_awake
+			if [ -z $up_threshold_awake ]; then
+				echo "Exiting..."
+				echo
+				break
+			fi
+			if [ $up_threshold_awake -lt "1" ]; then
+				echo "up_threshold_awake must be a numeric value greater than or equal to 1, please try again!" | fold -sw 60
+			elif [ $up_threshold_awake -gt "100" ]; then
+				echo "up_threshold_awake must be a numeric value less than or equal to 100, please try again!" | fold -sw 60
+			else
+				sed -i "s/up_threshold_awake=.*/up_threshold_awake=$up_threshold_awake/g" $defaultconf
+				echo "up_threshold_awake set to $up_threshold_awake!"
+			fi
+			echo
+			echo -n "Press Enter to continue..."
+			read key
+			restart_viperdaemon_quiet
+			break
+			done
+			;;
+		3)	while : ; do
+			echo "Current down_differential_awake"
+			echo "======================"
+			echo $down_differential_awake_check
+			echo "======================"
+			echo
+			echo -n "Please enter a new down_differential_awake (Enter to exit): " | fold -sw 60
+			read down_differential_awake
+			if [ -z $down_differential_awake ]; then
+				echo "Exiting..."
+				echo
+				break
+			fi
+			if [ $down_differential_awake -lt "1" ]; then
+				echo "down_differential_awake must be a numeric value greater than or equal to 1, please try again!" | fold -sw 60
+			elif [ $down_differential_awake -gt "100" ]; then
+				echo "down_differential_awake must be a numeric value less than or equal to 100, please try again!" | fold -sw 60
+			else
+				sed -i "s/down_differential_awake=.*/down_differential_awake=$down_differential_awake/g" $defaultconf
+				echo "down_differential_awake set to $down_differential_awake!"
+			fi
+			echo
+			echo -n "Press Enter to continue..."
+			read key
+			restart_viperdaemon_quiet
+			break
+			done
+			;;
+		4)	while : ; do
+			echo "Current sampling_down_factor_awake"
+			echo "======================"
+			echo $sampling_down_factor_awake_check
+			echo "======================"
+			echo
+			echo -n "Please enter a new sampling_down_factor_awake (Enter to exit): " | fold -sw 60
+			read sampling_down_factor_awake
+			if [ -z $sampling_down_factor_awake ]; then
+				echo "Exiting..."
+				echo
+				break
+			fi
+			if [ $sampling_down_factor_awake -lt "1" ]; then
+				echo "sampling_down_factor_awake must be a numeric value greater than or equal to 1, please try again!" | fold -sw 60
+			elif [ $sampling_down_factor_awake -gt "100" ]; then
+				echo "sampling_down_factor_awake must be a numeric value less than or equal to 100, please try again!" | fold -sw 60
+			else
+				sed -i "s/sampling_down_factor_awake=.*/sampling_down_factor_awake=$sampling_down_factor_awake/g" $defaultconf
+				echo "sampling_down_factor_awake set to $sampling_down_factor_awake!"
+			fi
+			echo
+			echo -n "Press Enter to continue..."
+			read key
+			restart_viperdaemon_quiet
+			break
+			done
+			;;
+		5)	while : ; do
+			echo "Current sampling_rate_sleep"
+			echo "======================"
+			echo $sampling_rate_sleep_check
+			echo "======================"
+			echo
+			echo -n "Please enter a new sampling_rate_sleep (Enter to exit): " | fold -sw 60
+			read sampling_rate_sleep
+			if [ -z $sampling_rate_sleep ]; then
+				echo "Exiting..."
+				echo
+				break
+			fi
+			if [ $sampling_rate_sleep -lt "10000" ]; then
+				echo "sampling_rate_sleep must be a numeric value greater than or equal to 10000, please try again!" | fold -sw 60
+			elif [ $sampling_rate_sleep-gt "300000" ]; then
+				echo "sampling_rate_sleep must be a numeric value less than or equal to 300000, please try again!" | fold -sw 60
+			else
+				sed -i "s/sampling_rate_sleep=.*/sampling_rate_sleep=$sampling_rate_sleep/g" $defaultconf
+				echo "sampling_rate_sleep set to $sampling_rate_sleep!"
+			fi
+			echo
+			echo -n "Press Enter to continue..."
+			read key
+			restart_viperdaemon_quiet
+			break
+			done
+			;;
+		6)	while : ; do
+			echo "Current up_threshold_sleep"
+			echo "======================"
+			echo $up_threshold_sleep_check
+			echo "======================"
+			echo
+			echo -n "Please enter a new up_threshold_sleep (Enter to exit): " | fold -sw 60
+			read up_threshold_sleep
+			if [ -z $up_threshold_sleep ]; then
+				echo "Exiting..."
+				echo
+				break
+			fi
+			if [ $up_threshold_sleep -lt "1" ]; then
+				echo "up_threshold_sleep must be a numeric value greater than or equal to 1, please try again!" | fold -sw 60
+			elif [ $up_threshold_sleep -gt "100" ]; then
+				echo "up_threshold_sleep must be a numeric value less than or equal to 100, please try again!" | fold -sw 60
+			else
+				sed -i "s/up_threshold_sleep=.*/up_threshold_sleep=$up_threshold_sleep/g" $defaultconf
+				echo "up_threshold_sleep set to $up_threshold_sleep!"
+			fi
+			echo
+			echo -n "Press Enter to continue..."
+			read key
+			restart_viperdaemon_quiet
+			break
+			done
+			;;
+		7)	while : ; do
+			echo "Current down_differential_sleep"
+			echo "======================"
+			echo $down_differential_sleep_check
+			echo "======================"
+			echo
+			echo -n "Please enter a new down_differential_sleep(Enter to exit): " | fold -sw 60
+			read down_differential_sleep
+			if [ -z $down_differential_sleep ]; then
+				echo "Exiting..."
+				echo
+				break
+			fi
+			if [ $down_differential_sleep -lt "1" ]; then
+				echo "down_differential_sleep must be a numeric value greater than or equal to 1, please try again!" | fold -sw 60
+			elif [ $down_differential_sleep -gt "100" ]; then
+				echo "down_differential_sleep must be a numeric value less than or equal to 100, please try again!" | fold -sw 60
+			else
+				sed -i "s/down_differential_sleep=.*/down_differential_sleep=$down_differential_sleep/g" $defaultconf
+				echo "down_differential_sleep set to $down_differential_sleep!"
+			fi
+			echo
+			echo -n "Press Enter to continue..."
+			read key
+			restart_viperdaemon_quiet
+			break
+			done
+			;;
+		8)	while : ; do
+			echo "Current sampling_down_factor_sleep"
+			echo "======================"
+			echo $sampling_down_factor_sleep_check
+			echo "======================"
+			echo
+			echo -n "Please enter a new sampling_down_factor_sleep (Enter to exit): " | fold -sw 60
+			read sampling_down_factor_sleep
+			if [ -z $sampling_down_factor_sleep ]; then
+				echo "Exiting..."
+				echo
+				break
+			fi
+			if [ $sampling_down_factor_sleep -lt "1" ]; then
+				echo "sampling_down_factor_sleep must be a numeric value greater than or equal to 1, please try again!" | fold -sw 60
+			elif [ $sampling_down_factor_sleep -gt "100" ]; then
+				echo "sampling_down_factor_sleep must be a numeric value less than or equal to 100, please try again!" | fold -sw 60	
+			else
+				sed -i "s/sampling_down_factor_sleep=.*/sampling_down_factor_sleep=$sampling_down_factor_sleep/g" $defaultconf
+				echo "sampling_down_factor_sleep set to $sampling_down_factor_sleep!"
+			fi
+			echo
+			echo -n "Press Enter to continue..."
+			read key
+			restart_viperdaemon_quiet
+			break
+			done
+			;;
+		*)	echo
+			echo "Exiting..."
+			break
+			;;
+	esac
+	done
+	
+}
+
+restart_viperdaemon ()
+{
+	pid=`busybox ps -o pid,args | awk '/viperDaemon/ { print $1 }'`
+	echo "Killing any instance of viperDaemon..."
+	echo
+	sleep 1
+	for i in $pid
+	do
+		kill -9 $pid > /dev/null 2>&1
+	done
+	if [ `busybox ps | grep viperDaemon | wc -l` -le "1" ]; then
+		echo "All instances sucessfully killed!"
+		log -p i -t DCM "******                     ******"
+		log -p i -t DCM "****** viperDaemon killed! ******"
+		log -p i -t DCM "******                     ******"
+	else
+		echo "ERROR!!! All instances could not be killed!"
+		log -p i -t DCM "******                         ******"
+		log -p i -t DCM "****** viperDaemon kill error! ******"
+		log -p i -t DCM "******                         ******"
+		break
+	fi
+	echo
+	echo "Restarting..."
+	sleep 1
+	/system/bin/viperDaemon &
+	log -p i -t DCM "******                        ******"
+	log -p i -t DCM "****** viperDaemon Restarted! ******"
+	log -p i -t DCM "******                        ******"
+	
+}
+
+advanced ()
+{
+	while : ; do
+	echo "======================================="
+	echo "|                                     |"
+	echo "|             DCM Advanced            |"
+	echo "|                                     |"
+	echo "======================================="
+	echo
+	echo "1) Generate default.conf"
+	echo
+	echo -n "Please choose an option (Enter to exit): "
+	read option
+	case $option in
+		1)	if [ -e $defaultconf ]; then
+				echo -n "default.conf already exists. Replace? (y/n): "
+				read choice
+				case $choice in
+					y|Y)	echo
+							rm $defaultconf
+							make_defaultconf
+							echo
+							if [ -e $defaultconf ]; then
+								echo "default.conf generated!"
+							else
+								echo "Error generating default.conf, please try again!"
+							fi
+							;;
+					n|N)	echo
+							echo "Nothing changed..."
+							;;
+				esac
+			else
+				make_defaultconfig
+				echo
+				echo "default.conf generated!"
+				echo
+			fi
+			;;
+		*)	break
+			;;
+	esac
+	done
+}
+
+
+about ()
+{
+	echo "made by -viperboy-"
+	pressenter
+}
+
+#mount -o remount,rw -t ext4 /dev/block/mmcblk0p35 /system
+configdir=/data/local/dcm/config
+defaultconf=/data/local/dcm/config/default.conf
+defaultuserfilename=`date | sed 's/ /_/g'`
+
+rootcheck
+dcminit
+
+gov_path=/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+ondemand_sampling_rate_path=/sys/devices/system/cpu/cpufreq/ondemand/sampling_rate
+ondemand_up_threshold_path=/sys/devices/system/cpu/cpufreq/ondemand/up_threshold
+ondemand_down_differential_path=/sys/devices/system/cpu/cpufreq/ondemand/down_differential
+ondemand_sampling_down_factor_path=/sys/devices/system/cpu/cpufreq/ondemand/sampling_down_factor
+
+while : ; do
+echo "======================================="
+echo "|                                     |"
+echo "|              DCM Config             |"
+echo "|                                     |"
+echo "======================================="
+#cpu1_screen_on_check=`cat $defaultconf | grep cpu1_screen_on | cut -d = -f 2`
+export disable_cpu1_screen_off_check=`cat $defaultconf | grep disable_cpu1_screen_off | cut -d = -f 2`
+export min_awake_freq_check=`cat $defaultconf | grep min_awake_freq | cut -d = -f 2`
+export max_awake_freq_check=`cat $defaultconf | grep max_awake_freq | cut -d = -f 2`
+export min_sleep_freq_check=`cat $defaultconf | grep min_sleep_freq | cut -d = -f 2`
+export max_sleep_freq_check=`cat $defaultconf | grep max_sleep_freq | cut -d = -f 2`
+export awake_governor_check=`cat $defaultconf | grep awake_governor | cut -d = -f 2`
+export sleep_governor_check=`cat $defaultconf | grep sleep_governor | cut -d = -f 2`
+dcmsettings
+echo
+#echo "1) View current configuration"
+echo "1) Change CPU options"
+echo "2) Change governor tweaks"
+echo
+echo "3) Restart viperDaemon"
+echo
+echo "4) Advanced"
+echo
+echo "5) About"
+echo
+echo -n "Please choose an option (Enter to exit): "
+read option
+case $option in
+	999)	view_configs
+		;;
+	1)	cpu_options
+		;;
+	2)	governor_tweaks
+		;;
+	3)	restart_viperdaemon
+		;;
+	4)	advanced
+		;;
+	5)	about
+		;;
+	*)	about
+		echo
+		exit
+		;;
+esac
+done

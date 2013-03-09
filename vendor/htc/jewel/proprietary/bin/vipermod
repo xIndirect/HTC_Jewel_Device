@@ -1,0 +1,207 @@
+#!/system/bin/sh
+
+pressenter ()
+{
+	echo
+	echo -n "Press Enter to continue..."
+	read key
+}
+
+check_vdd ()
+{
+
+if [ -e /sys/devices/system/cpu/cpu0/cpufreq/vdd_levels ]
+		then			
+			vdd_levels=/sys/devices/system/cpu/cpu0/cpufreq/vdd_levels
+elif [ -e /sys/devices/system/cpu/cpufreq/vdd_table/vdd_levels ]
+		then
+			vdd_levels=/sys/devices/system/cpu/cpufreq/vdd_table/vdd_levels
+else	
+			echo		
+			echo "This is an incompatible kernel!"
+			echo
+			echo "Please flash a compatible kernel that supports the"
+			echo "sysfs interface."
+			pressenter
+			exit
+fi
+}
+
+check_vdd
+
+while : ; do
+echo
+echo "            _                 __  __  ___  ____  "
+echo "    __   __(_)_ __   ___ _ __|  \/  |/ _ \|  _ \ "
+echo "    \ \ / /| | '_ \ / _ \ '__| |\/| | | | | | | |"
+echo "     \ \ / | | |_) |  __/ |  | |  | | |_| | |_| |"
+echo "      \_/  |_| .__/ \___|_|  |_|  |_|\___/|____/ "
+echo "             |_|                                 "
+echo "                     for viperROM"
+echo "-----------------------------------------------------"
+echo
+echo "1) Read current voltages"
+echo "2) Lower voltages"
+echo "3) Raise voltages"
+echo "4) Custom voltages"
+echo "5) Reset voltages to kernel default (Requires reboot)"
+#echo "6) Stabilize OC frequencies"
+echo "6) Read init.d voltage file"
+#echo "7) Current bugs and help"
+echo "7) Backup/restore settings"
+echo "8) Save changes"
+echo
+echo -n "Please choose an option, Enter to exit: "
+read option
+case $option in
+1)	cat $vdd_levels
+	;; 
+2)	echo
+	echo "1) Lower voltages by 25mv"
+	echo "2) Lower voltages by 50mv"
+	echo "3) Lower voltages by 75mv"
+	echo "4) Lower voltages by 100mv"
+	echo
+	echo -n "Please choose an option: "
+	read option
+	case $option in
+		1)	echo "-25000" > $vdd_levels
+			echo "Voltages lowered by 25mv!"
+			;;
+		2)	echo "-50000" > $vdd_levels
+			echo "Voltages lowered by 50mv!"
+			;;
+		3)	echo "-75000" > $vdd_levels
+			echo "Voltages lowered by 75mv!"
+			;;
+		4)	echo "-100000" > $vdd_levels
+			echo "Voltages lowered by 100mv!" 
+			;;					
+	esac
+	;;
+3)	echo
+	echo "1) Raise voltages by 25mv"
+	echo "2) Raise voltages by 50mv"
+	echo "3) Raise voltages by 75mv"
+	echo
+	echo -n "Please choose an option: "
+	read option
+	case $option in
+		1)	echo "+25000" > $vdd_levels
+			echo "Voltages raised by 25mv!"
+			;;
+		2)	echo "+50000" > $vdd_levels
+			echo "Voltages raised by 50mv!"
+			;;
+		3)	echo "+75000" > $vdd_levels
+			echo "Voltages raised by 75mv!"
+			;;
+	esac
+	;;
+4)	while : ; do
+	echo "Available frequencies:"
+	echo
+	cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_available_frequencies
+	echo
+	echo -n "Choose frequency (Enter to exit): "
+	read frequency
+	if [ -z $frequency ]; then
+		echo "Exiting..."
+		break
+	fi
+	echo
+	echo -n "Choose voltage (in microvolts - e.g 1200000): "
+	read voltage	
+	if [ -z $voltage ]; then
+		echo "Exiting..."
+		break
+	fi					
+	echo "$frequency $voltage" > $vdd_levels
+	echo
+	echo "Voltage set!"
+	echo
+	echo -n "Press Enter to set another voltage, q to exit menu: "
+	read option
+	if [ $option = "q" ] || [ $option = "Q" ]; then
+		break
+	fi
+	done
+	;;
+5)	if [ -e /system/etc/init.d/74havsvoltages ]; then
+		rm /system/etc/init.d/74havsvoltages
+		echo "Voltages reset to kernel default!"
+		echo "You must reboot to see changes!"
+		echo
+		echo -n "Do you want to reboot now? (y/n): "
+		read option
+		case $option in
+			y|Y)	busybox reboot -f
+					;;
+			n|N)	;;
+		esac
+	else
+		echo
+		echo "No voltage file to reset!"
+		pressenter
+	fi
+	;;
+631)	echo "Not yet supported!"
+	echo
+	#echo "OC voltages stabilized!"
+	;;
+6)	if [ -e /system/etc/init.d/74havsvoltages ]; then
+		echo
+		cat /system/etc/init.d/74havsvoltages
+		echo
+	else
+		echo
+		echo "no init.d file detected! viperMOD is not activated"
+		echo
+	fi
+	;;
+765)	echo
+	echo "              Current Bugs and Help"
+	echo
+	echo "-Did you find a bug? Please post in the respective"
+	echo " XDA thread or email me at viperboy@tiamat-dev.com"
+	;;
+7)	echo
+	echo "1) Backup settings"
+	echo "2) Restore settings"
+	echo
+	echo -n "Please choose an option: "
+	read option
+	case $option in
+		1)	if [ -e /system/etc/init.d/74havsvoltages ]; then
+				cp /system/etc/init.d/74havsvoltages /sdcard/Viper4G/74havsvoltages
+				echo
+				echo "Backup copied to /sdcard/Viper4G/74havsvoltages!"
+			else
+				echo
+				echo "Nothing to backup! You must save the current voltages first!"
+			fi
+			;;
+		2)	if [ -e cp /sdcard/Viper4G/74havsvoltages ]; then
+				cp /sdcard/Viper4G/74havsvoltages /system/etc/init.d/74havsvoltages
+				chmod 777 /system/etc/init.d/74havsvoltages
+				echo
+				echo "Backup restored!"
+			else
+				echo
+				echo "Nothing to restore! You must backup your settings first!"
+			fi
+			;;
+	esac
+	;;
+8)	if [ -e /system/etc/init.d/74havsvoltages ]; then
+		rm /system/etc/init.d/74havsvoltages
+	fi
+	awk  'BEGIN {print "#!/system/bin/sh\n#created by -viperboy-\n\nif [ -e /sys/devices/system/cpu/cpu0/cpufreq/vdd_levels ]\n    then\n        vdd_levels=/sys/devices/system/cpu/cpu0/cpufreq/vdd_levels\nelif [ -e /sys/devices/system/cpu/cpufreq/vdd_table/vdd_levels ]\n    then\n        vdd_levels=/sys/devices/system/cpu/cpufreq/vdd_table/vdd_levels\nfi\n"} { split ($1,first,":"); print "echo","\"" first[1],$2"\"","> $vdd_levels"}' $vdd_levels >> /system/etc/init.d/74havsvoltages
+	chmod 777 /system/etc/init.d/74havsvoltages
+		echo
+		echo "init.d file created!"
+	;;
+*)	break
+	;;
+esac
+done

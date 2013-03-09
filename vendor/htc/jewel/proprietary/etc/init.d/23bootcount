@@ -1,0 +1,45 @@
+#!/system/bin/sh
+#made by -viperboy-
+
+INFOFILE=/system/etc/uptime.txt
+LOGFILE=/system/etc/stats.txt
+
+if [ ! -e $LOGFILE ]; then
+	echo "#made by -viperboy-" > $LOGFILE
+	echo " " >> $LOGFILE
+	echo "BOOT_COUNT=0" >> $LOGFILE
+	echo "LAST_BOOT=0" >> $LOGFILE
+	#echo "LAST_UP_TIME=0" >> $LOGFILE
+	#echo "LAST_IDLE_TIME=0" >> $LOGFILE
+	#echo "LAST_SLEEP_TIME=0" >> $LOGFILE
+fi
+
+BOOTCOUNT=`cat $LOGFILE | grep BOOT_COUNT | cut -d = -f 2`
+LASTBOOT=`cat $LOGFILE | grep LAST_BOOT | cut -d = -f 2`
+#UTIME=`cat $INFOFILE | cut -d , -f 1 | cut -d " " -f 3`
+#IDLETIME=`cat $INFOFILE | cut -d , -f 2 | cut -d " " -f 4`
+#SLEEPTIME=`cat $INFOFILE | cut -d , -f 3 | cut -d " " -f 4`
+
+echo "OLD BOOT_COUNT = $BOOTCOUNT"
+NEWBOOTCOUNT=$(($BOOTCOUNT+1))
+echo "NEW BOOT_COUNT = $NEWBOOTCOUNT"
+sed -i "s/BOOT_COUNT=.*/BOOT_COUNT=$NEWBOOTCOUNT/g" $INFOFILE 
+
+echo "PREVIOUS LAST_BOOT = $LASTBOOT"
+NEWLASTBOOT=`date +"%m-%d-%Y_%H:%M:%S"`
+echo "NEW LAST_BOOT = $NEWLASTBOOT"
+sed -i "s/LAST_BOOT=.*/LAST_BOOT=$NEWLASTBOOT/g" $INFOFILE 
+
+#if [ ! -e $INFOFILE ]; then
+#	sed -i 's/UP_TIME=.*/UP_TIME=UNABLE TO READ UPTIME.TXT!/g' $INFOFILE 
+#	sed -i 's/IDLE_TIME=.*/IDLE_TIME=UNABLE TO READ UPTIME.TXT!/g' $INFOFILE 
+#	sed -i 's/SLEEP_TIME=.*/SLEEP_TIME=UNABLE TO READ UPTIME.TXT!/g' $INFOFILE 
+#else
+#	echo "LAST UP_TIME = $UTIME"
+#	echo "LAST IDLE_TIME = $IDLETIME"
+#	echo "LAST SLEEP_TIME = $SLEEPTIME"
+#	sed -i "s/UP_TIME=.*/UP_TIME=$UTIME/g" $INFOFILE 
+#	sed -i "s/IDLE_TIME=.*/IDLE_TIME=$IDLETIME/g" $INFOFILE 
+#	sed -i "s/SLEEP_TIME=.*/SLEEP_TIME=$SLEEPTIME/g" $INFOFILE 
+#	rm $INFOFILE
+#fi

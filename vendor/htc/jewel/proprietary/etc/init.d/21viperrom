@@ -1,0 +1,150 @@
+#!/system/bin/sh
+#created by -viperboy-
+
+log -p i -t viperinit " *** start 21viperrom init.d file ***"
+log -p i -t viperinit " "
+log -p i -t viperinit "mount system rw"
+log -p i -t viperinit " "
+
+#Disable system write protection for s-on devices
+if [ -e /system/lib/modules/wp_mod.ko ]; then
+	insmod /system/lib/modules/wp_mod.ko
+fi
+
+busybox mount -o remount,rw /system
+  
+
+if [ `cat /proc/last_kmsg | grep -ci "kernel panic"` -gt "0" ]; then
+	echo 1 > /system/etc/virtuous_oc/showwarning
+	log -p i -t viperinit "kernel panic found, enable showwarning for vc"
+	log -p i -t viperinit " "
+else
+	log -p i -t viperinit "no kernel panic found"
+	log -p i -t viperinit " "
+fi
+
+# kill old garbage market doesnt clean - (thanks Team Synergy)
+log -p i -t viperinit "cleaning garbage"
+log -p i -t viperinit " "
+busybox rm -f /cache/*.apk;
+busybox rm -f /cache/*.tmp;
+busybox rm -f /cache/recovery/*;
+busybox rm -f /data/dalvik-cache/*.apk;
+busybox rm -f /data/dalvik-cache/*.tmp;
+busybox rm -f /data/system/userbehavior.db;
+busybox chmod 400 /data/system/usagestats/;
+busybox chmod 400 /data/system/appusagestats/;
+
+#filesystem tweaks
+log -p i -t viperinit "filesystem tweaks"
+log -p i -t viperinit " "
+if [ `getprop vc.filesystem.tweak` = '1' ]; then
+	busybox mount -o remount,ro,noatime,noauto_da_alloc,nodiratime,discard,barrier=0,nobh /system;
+	busybox mount -o remount,noatime,noauto_da_alloc,nodiratime,discard,nodev,barrier=0,nobh /data;
+	busybox mount -o remount,noatime,noauto_da_alloc,nodiratime,discard,nodev,barrier=0,nobh /cache;
+else
+	busybox mount -o remount,ro,noatime,noauto_da_alloc,nodiratime,barrier=0,nobh /system;
+	busybox mount -o remount,noatime,noauto_da_alloc,nodiratime,nodev,barrier=0,nobh /data;
+	busybox mount -o remount,noatime,noauto_da_alloc,nodiratime,nodev,barrier=0,nobh /cache;
+fi
+
+busybox mount -o rw,remount /system
+
+log -p i -t viperinit "Setting permissions"
+log -p i -t viperinit "Setting /app & /framework permissions"
+log -p i -t viperinit " "
+for file in /system/app/* /system/framework/*; do
+chmod 644 $file
+done
+  
+log -p i -t viperinit "Setting init.d permissions"
+log -p i -t viperinit " "
+chmod 777 /system/etc/init.d
+for file in /system/etc/init.d/*; do
+log -p i -t viperinit "setting permissions (777) for $file"
+log -p i -t viperinit " "
+chmod 777 $file
+done
+
+#zipalign
+log -p i -t viperinit "zipaligning apks"
+log -p i -t viperinit " "
+zipalign_apks
+
+#sysctl start
+log -p i -t viperinit "sysctl start"
+log -p i -t viperinit " "
+sysctl -p /system/etc/sysctl.conf
+
+#kernel tweaks
+log -p i -t viperinit "kernel tweaks"
+log -p i -t viperinit " "
+echo "512" > /sys/block/mmcblk0/queue/nr_requests;
+echo "512" > /sys/block/mmcblk1/queue/nr_requests;
+
+#setcpu and others checker
+log -p i -t viperinit "cpu checks"
+log -p i -t viperinit " "
+if [ `getprop vc.cpu.control` = '0' ]; then
+	log -p i -t viperinit "**** user override CPU daemons ****"
+	log -p i -t viperinit " "
+fi
+CPUAPP=0
+if grep -q "ch.amana.android.cputuner" /data/system/packages.xml ; then
+	CPUAPP=1
+elif grep -q "com.mhuang.overclocking" /data/system/packages.xml ; then
+	CPUAPP=1
+elif grep -q "org.freecoder.widgets.overclock" /data/system/packages.xml ; then
+	CPUAPP=1
+elif grep -q "com.antutu.CpuMasterFree" /data/system/packages.xml ; then
+	CPUAPP=1
+fi
+if [ $CPUAPP = '0' ]; then
+	if [ ! -e /system/bin/mpdecision ] && [ -e /system/bin/mpdecision.bak ]; then
+		mv /system/bin/mpdecision.bak /system/bin/mpdecision
+	fi
+	if [ `getprop vc.cpu.control` = '1' ]; then
+		chmod 755 /system/xbin/virtuous_oc
+		/system/xbin/virtuous_oc
+		if [ ! -e /system/bin/mpdecision ] && [ -e /system/bin/mpdecision.bak ]; then
+			mv /system/bin/mpdecision.bak /system/bin/mpdecision
+		fi
+		log -p i -t viperinit "**** Started virtuous_oc ****"
+		log -p i -t viperinit " "
+	elif [ `getprop vc.cpu.control` = '2' ]; then
+		chmod 755 /system/bin/viperDaemon
+		/system/bin/viperDaemon &
+		if [ -e /system/bin/mpdecision ]; then
+			mv /system/bin/mpdecision /system/bin/mpdecision.bak
+		fi
+		log -p i -t viperinit "**** Started viperDaemon ****"
+		log -p i -t viperinit " "
+	fi
+elif [ $CPUAPP = '1' ]; then
+	if [ ! -e /system/bin/mpdecision ] && [ -e /system/bin/mpdecision.bak ]; then
+		mv /system/bin/mpdecision.bak /system/bin/mpdecision
+	fi
+	log -p i -t viperinit "****CPU app found!****"
+	log -p i -t viperinit " "
+fi
+
+
+#if [ -e /sys/devices/system/cpu/cpufreq/ondemand/ ] ; then
+#	echo "70000" > /sys/devices/system/cpu/cpufreq/ondemand/sampling_rate
+#	echo "93" > /sys/devices/system/cpu/cpufreq/ondemand/up_threshold
+#	echo "1" > /sys/devices/system/cpu/cpufreq/ondemand/sampling_down_factor
+#	echo "7" > /sys/devices/system/cpu/cpufreq/ondemand/down_differential
+#	echo "****governor tweaks sucessfully applied!****"
+#else
+#	echo "****governor tweaks not applied!****"
+#	exit 0
+#fi
+
+# SD Card Readahead tweak
+if [ -e /sys/devices/virtual/bdi/179:0/read_ahead_kb ]
+  then
+    /system/xbin/echo "512" > /sys/devices/virtual/bdi/179:0/read_ahead_kb;
+fi;
+
+log -p i -t viperinit " "
+log -p i -t viperinit " *** end 21viperrom init.d file ***"

@@ -1,0 +1,15 @@
+# setup cron - (Thanks Steve!)
+log -p i -t viperinit "cron setup"
+log -p i -t viperinit " "
+mount -o remount,rw /
+echo "root:x:0:0::/system/etc/cron:/system/bin/bash" > /etc/passwd
+mkdir -p /bin
+ln -s /system/bin/sh /bin/sh
+export TZ=EST5EDT
+mount -o remount,ro /
+mkdir -p /system/etc/logs
+rm /system/etc/logs/cron.log
+rm /system/etc/logs/cronjobs
+dos2unix /etc/cron/root
+dos2unix /system/bin/cronjob.sh
+crond -f -l 8 -L /system/etc/logs/cron.log -c /system/etc/cron

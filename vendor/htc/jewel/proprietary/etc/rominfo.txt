@@ -1,0 +1,64 @@
+<b>Changelogs</b>
+<br>
+<br><b><u>3.1.2</u></b>
+<br>[*] Fixed on-screen menu key SystemUI FC
+<br>[*] Fixed LCD Density Array that could cause problems
+<br>[*] Added shutter sound mod to Camera.apk
+<br>[*] Increased max hotspot connetions to 5
+<br>[*] Changed social media sync from 24 hours to 4 hours
+<br>[*] Update hosts file
+<br>[*] FULL ROM ONLY: Unhide Polaris Office, PDF Reader, Mirror and Downloads from app drawer
+<br>[*] FULL ROM ONLY: Update all apps to most recent versions
+<br><b><u>3.1.1</u></b>
+<br>[*] Update to latest VenomTweaks
+<br>[*] Added Bug Report setting (captures video of the screen that you can send to us to show the issue you're having)
+<br>[*] Added Show Notification Count in Statusbar tweak
+<br>[*] Added Horizontal QS/QL icon size tweak
+<br>[*] Added Statusbar Weather Background Color Change tweak
+<br>[*] Added Rotations (90, 180, 270 degrees) tweak
+<br>[*] Can now remove Keyboard notice from statusbar via "hide specific notifications"
+<br>[*] Added Landscape Rotation for Calls tweak
+<br>[*]	Added HTC IME Color Tweak
+<br>[*] Added LCD density tweaks
+<br>[*] Enable VenomTweaks Pro Key support (check it out in the Play Store [Will be available in a few hours])
+<br>[*] Update to latest VenomHUB and VenomFileManager
+<br>[*] Update HtcSoundEnhancerSetting to latest ViperX+ code
+<br>[*] Changed Default Weather Background in Statusbar
+<br>[*] Changed AOSP Recent Apps border color to JB Blue
+<br>[*] Fixed Rosie reloads (thanks zeppelinrox for some code and reference material)
+<br>[*] Fixed EQ presets not sticking
+<br>[*] Enable CPU tab in VenomTweaks via VC (if you disable all daemons)
+<br>[*] FULL ROM ONLY: Reduced longpress timeout to 300ms, disabled fastboot by default, reduce animation times
+<br><b><u>3.1.0</u></b>
+<br>[*] Rebased to 3.16.651.3 OTA
+<br>[*] Updated all apps to latest
+<br>[*] Fixed apps sometimes not installing
+<br>[*] Added Horizontal Quick Settings Size tweak
+<br>[*] Added Statusbar Header Customize tweak
+<br>[*] Added Rosie Navbar Style tweaks (Sense 5 or Transparent)
+<br>[*] Added Rosie Menu Customization tweak
+<br>[*] Added Rosie Clock Widget App tweak
+<br>[*] Added Rosie App Drawer Border Color tweak
+<br>[*] Added Lockscreen Clock Size tweak
+<br>[*] Added Lockscreen Custom App Notifications tweak
+<br>[*] Added Lockscreen Quick Flashlight tweak
+<br>[*] Added widget fix tweak
+<br>[*] Added more Overscroll Glow colors
+<br>[*] Removed Longpress Delay tweaks
+<br>[*] Removed PCTOOLS.iso
+<br>[*] Removed USB Connected Notification
+<br>[*] Updated VenomAppInstaller to skip scanning sdcard for apks
+<br>
+<br><b><u>3.0.1</u></b>
+<br>[*] Support for S-ON users via wp_mod.ko (thanks flar2!)
+<br>[*] Added scrolling wallpaper tweak
+<br>[*] Edited 'Hiding of GPS', so active-GPS shows even when 'Crosshairs' are hidden
+<br>[*] Updated Keyboards in VenomHUB
+<br>[*] Fix Twitter and Facebook integration
+<br>[*] Fixed the VenomOTA not working issue
+<br>[*] Fixed cron bug
+<br>[*] Remove XLoud toggle
+<br>[*] Changed Settings > About > System updates to "ROM Update"
+<br>
+<br><b><u>3.0.0</u></b>
+<br>[*] Initial release of new JB base<br>

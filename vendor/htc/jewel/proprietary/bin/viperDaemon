@@ -1,0 +1,167 @@
+#!/system/bin/sh
+#created by -viperboy-
+
+#todo:
+#compile into binary
+
+defaultconf=/data/local/dcm/config/default.conf
+
+if [ ! -e /data/local/dcm ] || [ ! -e /data/local/dcm/config ] || [ ! -e $defaultconf ]; then
+	log -p e -t DCM "*** Missing necessary files or folders, creating!  ***"
+	mkdir -p /data/local/dcm
+	mkdir -p /data/local/dcm/config
+	echo "#default.conf" > $defaultconf
+	echo -n "#" >> $defaultconf
+	echo "`date`" >> $defaultconf
+	echo "#created by -viperboy-'s DCMControl" >> $defaultconf
+	echo "" >> $defaultconf
+	echo "CPU Options" >> $defaultconf
+	echo "============================" >> $defaultconf
+	echo "disable_cpu1_screen_off=1" >> $defaultconf
+	echo "" >> $defaultconf
+	echo "awake_governor=ondemand" >> $defaultconf
+	echo "max_awake_freq=1512000" >> $defaultconf
+	echo "min_awake_freq=384000" >> $defaultconf
+	echo "" >> $defaultconf
+	echo "sleep_governor=ondemand" >> $defaultconf
+	echo "max_sleep_freq=486000" >> $defaultconf
+	echo "min_sleep_freq=384000" >> $defaultconf
+	echo "============================" >> $defaultconf
+	echo "" >> $defaultconf
+	echo "Ondemand Governor Options" >> $defaultconf
+	echo "============================" >> $defaultconf
+	echo "sampling_rate_awake=40000" >> $defaultconf
+	echo "up_threshold_awake=80" >> $defaultconf
+	echo "down_differential_awake=12" >> $defaultconf
+	echo "sampling_down_factor_awake=3" >> $defaultconf
+	echo "" >> $defaultconf
+	echo "sampling_rate_sleep=80000" >> $defaultconf
+	echo "up_threshold_sleep=95" >> $defaultconf
+	echo "down_differential_sleep=5" >> $defaultconf
+	echo "sampling_down_factor_sleep=1" >> $defaultconf
+	echo "============================" >> $defaultconf
+	if [ -e $defaultconf ]; then
+		log -p i -t DCM "*** Necessary files and folders created! ***"
+	else
+		log -p i -t DCM "*** Necessary files and folders could not be created, killing viperDaemon! ***"
+		exit
+	fi
+fi
+
+log -p i -t DCM "*** Initializing viperDaemon ***"
+
+disable_cpu1_screen_off_check=`cat $defaultconf | grep disable_cpu1_screen_off | cut -d = -f 2`
+min_awake_freq_check=`cat $defaultconf | grep min_awake_freq | cut -d = -f 2`
+max_awake_freq_check=`cat $defaultconf | grep max_awake_freq | cut -d = -f 2`
+min_sleep_freq_check=`cat $defaultconf | grep min_sleep_freq | cut -d = -f 2`
+max_sleep_freq_check=`cat $defaultconf | grep max_sleep_freq | cut -d = -f 2`
+awake_governor_check=`cat $defaultconf | grep awake_governor | cut -d = -f 2`
+sleep_governor_check=`cat $defaultconf | grep sleep_governor | cut -d = -f 2`
+
+sampling_rate_awake_check=`cat $defaultconf | grep sampling_rate_awake | cut -d = -f 2`
+up_threshold_awake_check=`cat $defaultconf | grep up_threshold_awake | cut -d = -f 2`
+down_differential_awake_check=`cat $defaultconf | grep down_differential_awake | cut -d = -f 2`
+sampling_down_factor_awake_check=`cat $defaultconf | grep sampling_down_factor_awake | cut -d = -f 2`
+
+sampling_rate_sleep_check=`cat $defaultconf | grep sampling_rate_sleep | cut -d = -f 2`
+up_threshold_sleep_check=`cat $defaultconf | grep up_threshold_sleep | cut -d = -f 2`
+down_differential_sleep_check=`cat $defaultconf | grep down_differential_sleep | cut -d = -f 2`
+sampling_down_factor_sleep_check=`cat $defaultconf | grep sampling_down_factor_sleep | cut -d = -f 2`
+
+gov_path=/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+max_freq_path=/sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
+min_freq_path=/sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq
+ondemand_sampling_rate_path=/sys/devices/system/cpu/cpufreq/ondemand/sampling_rate
+ondemand_up_threshold_path=/sys/devices/system/cpu/cpufreq/ondemand/up_threshold
+ondemand_down_differential_path=/sys/devices/system/cpu/cpufreq/ondemand/down_differential
+ondemand_sampling_down_factor_path=/sys/devices/system/cpu/cpufreq/ondemand/sampling_down_factor
+
+holdon_timeout=100000
+holdon_timeout_alt=120000
+
+while : ; do
+    awake=`cat /sys/power/wait_for_fb_wake`
+    if [ $awake = "awake" ]; then
+		chmod 666 /sys/devices/system/cpu/cpu1/online
+		usleep $holdon_timeout
+		echo "1" > /sys/devices/system/cpu/cpu1/online
+		if [ `cat /sys/devices/system/cpu/cpu1/online` = "1" ]; then
+			log -p i -t DCM " "
+			log -p i -t DCM "*** Screen On - CPU1 Forced Online! ***"
+		else
+			log -p w -t DCM "*** Screen On - CPU1 could not be forced online! ***"
+		fi
+		chmod 444 /sys/devices/system/cpu/cpu1/online
+		echo $awake_governor_check > $gov_path
+		log -p i -t DCM "*** set governor to $awake_governor_check ***"
+		echo $max_awake_freq_check > $max_freq_path
+		log -p i -t DCM "*** set max_awake_freq to $max_awake_freq_check ***"
+		echo $min_awake_freq_check > $min_freq_path
+		log -p i -t DCM "*** set min_awake_freq to $min_awake_freq_check ***"
+		echo $sampling_rate_awake_check > $ondemand_sampling_rate_path
+		log -p i -t DCM "*** set sampling_rate_awake to $sampling_rate_awake_check ***"
+		echo $up_threshold_awake_check > $ondemand_up_threshold_path
+		log -p i -t DCM "*** set up_threshold_awake to $up_threshold_awake_check ***"
+		echo $down_differential_awake_check > $ondemand_down_differential_path
+		log -p i -t DCM "*** set down_differential_awake to $down_differential_awake_check ***"
+		echo $sampling_down_factor_awake_check > $ondemand_sampling_down_factor_path
+		log -p i -t DCM "*** set sampling_down_factor_awake to $sampling_down_factor_awake_check ***"
+		log -p i -t DCM "*** Screen on tweaks applied! ***"
+	awake=
+	fi
+
+    sleep=`cat /sys/power/wait_for_fb_sleep`
+    if [ $sleep = "sleeping" ]; then
+		log -p i -t DCM " "
+		if [ $disable_cpu1_screen_off_check = "0" ]; then
+			chmod 666 /sys/devices/system/cpu/cpu1/online
+			usleep $holdon_timeout_alt
+			echo "1" > /sys/devices/system/cpu/cpu1/online
+			if [ `cat /sys/devices/system/cpu/cpu1/online` = "1" ]; then
+				log -p i -t DCM "*** Screen Off - CPU1 Forced Online! ***"
+			else
+				log -p w -t DCM "*** Screen Off - CPU1 could not be forced online! ***"
+			fi
+			chmod 444 /sys/devices/system/cpu/cpu1/online
+		elif [ $disable_cpu1_screen_off_check = "1" ]; then
+			chmod 666 /sys/devices/system/cpu/cpu1/online
+			usleep $holdon_timeout_alt
+			echo "0" > /sys/devices/system/cpu/cpu1/online
+			if [ `cat /sys/devices/system/cpu/cpu1/online` = "0" ]; then
+				log -p i -t DCM "*** Screen Off - CPU1 Forced Offline! ***"
+			else
+				log -p w -t DCM "*** Screen Off - CPU1 could not be forced offline, retrying! ***"
+			fi
+			usleep $holdon_timeout_alt
+			if [ `cat /sys/devices/system/cpu/cpu1/online` != "0" ]; then
+				log -p w -t DCM "*** Screen Off - CPU1 was somehow toggled back online, forcing offline again! ***"
+				echo "0" > /sys/devices/system/cpu/cpu1/online
+				if [ `cat /sys/devices/system/cpu/cpu1/online` != "0" ]; then
+					log -p e -t DCM "*** Screen Off - CPU1 could not be forced offline! ***"
+				else
+					log -p i -t DCM "*** Screen Off - CPU1 Forced Offline! (finally) ***"
+				fi
+			else
+				log -p i -t DCM "*** Screen Off - CPU1 Forced Offline! (recheck) ***"
+			
+			fi
+			chmod 444 /sys/devices/system/cpu/cpu1/online
+		fi
+		echo $sleep_governor_check > $gov_path
+		log -p i -t DCM "*** set governor to $sleep_governor_check ***"
+		echo $max_sleep_freq_check > $max_freq_path
+		log -p i -t DCM "*** set max_awake_freq to $max_sleep_freq_check ***"
+		echo $min_sleep_freq_check > $min_freq_path
+		log -p i -t DCM "*** set min_awake_freq to $min_sleep_freq_check ***"
+		echo $sampling_rate_sleep_check > $ondemand_sampling_rate_path
+		log -p i -t DCM "*** set sampling_rate_awake to $sampling_rate_sleep_check ***"
+		echo $up_threshold_sleep_check > $ondemand_up_threshold_path
+		log -p i -t DCM "*** set up_threshold_awake to $up_threshold_sleep_check ***"
+		echo $down_differential_sleep_check > $ondemand_down_differential_path
+		log -p i -t DCM "*** set down_differential_awake to $down_differential_sleep_check ***"
+		echo $sampling_down_factor_sleep_check > $ondemand_sampling_down_factor_path
+		log -p i -t DCM "*** set sampling_down_factor_awake to $sampling_down_factor_sleep_check ***"
+		log -p i -t DCM "*** Screen off tweaks applied! ***"
+	sleep=
+    fi
+done

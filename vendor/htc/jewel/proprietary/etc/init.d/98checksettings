@@ -1,0 +1,56 @@
+#!/system/bin/sh
+. /system/xbin/venom_functions.sh
+
+#SysRW
+if [ "`read_sys_setting tweaks_system_rw 1`" = "1" ]; then
+    echo "Mounting /system as RW";
+    mount -o remount,rw /system;
+else
+    echo "Mounting /system as RO";
+    mount -o remount,ro /system;
+fi
+
+#Disable log cat on boot
+if [ "`read_sys_setting tweaks_disable_logcat 0`" = "1" ]; then
+    echo "Disabling logcat";
+    rm /dev/log/main;
+fi
+
+#Adb icon
+if [ "`read_sys_setting tweaks_show_adb_icon 1`" = "1" ]; then
+    echo "Enabling ADB icon";
+    setprop persist.adb.notify 1
+else
+    echo "Disabling ADB icon";
+    setprop persist.adb.notify 0
+fi
+
+#Setup volume wake
+if [ -e "/sys/keyboard/vol_wakeup" ]; then
+    VOLUME_WAKE=`read_sys_setting tweaks_sweep_wake 0`;
+    echo $VOLUME_WAKE > /sys/keyboard/vol_wakeup;
+fi
+
+#Setup Sweep2Wake
+SW_STATE=`read_sys_setting tweaks_sweep_wake 0`;
+echo Setup Sweep2Wake;
+if [ -e "/sys/android_touch/sweep2wake" ]; then
+    echo $SW_STATE > /sys/android_touch/sweep2wake;
+fi
+if [ -e "/sys/android_touch/sweep2wake/s2w_switch" ]; then
+    echo $SW_STATE > /sys/android_touch/sweep2wake/s2w_switch;
+fi
+if [ -e "/sys/android_touch/sweep2wake/s2w_allow_stroke" ]; then
+    echo 0 > /sys/android_touch/s2w_allow_stroke;
+fi
+
+#Beats headset
+mkdir -p /dev/venom/htc_accessory/headset;
+chmod -R 777 /dev/venom;
+chown 1000:1000 /dev/venom;
+chown 1000:1000 /dev/venom/htc_accessory;
+chown 1000:1000 /dev/venom/htc_accessory/headset;
+
+echo -n "others" > /dev/venom/htc_accessory/headset/state;
+chmod 0644 /dev/venom/htc_accessory/headset/state;
+chown 1000:1000 /dev/venom/htc_accessory/headset/state;

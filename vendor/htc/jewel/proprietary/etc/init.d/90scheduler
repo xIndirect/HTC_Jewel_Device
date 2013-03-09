@@ -1,0 +1,32 @@
+#!/system/bin/sh
+#created by -viperboy-
+
+log -p i -t viperinit " "
+log -p i -t viperinit "*** start 90scheduler init.d file ***"
+log -p i -t viperinit " "
+
+echo deadline > /sys/block/mmcblk0/queue/scheduler
+echo deadline > /sys/block/mmcblk1/queue/scheduler
+
+log -p i -t viperinit "*** force deadline ***"
+log -p i -t viperinit " "
+
+#stock: fifo_batch = 16, front_merges = 1, read_expire = 500, write_expire = 5000
+echo 1 > /sys/block/mmcblk0/queue/iosched/fifo_batch
+echo 0 > /sys/block/mmcblk0/queue/iosched/front_merges
+echo 150 > /sys/block/mmcblk0/queue/iosched/read_expire
+echo 1500 > /sys/block/mmcblk0/queue/iosched/write_expire
+
+echo 1 > /sys/block/mmcblk1/queue/iosched/fifo_batch
+echo 0 > /sys/block/mmcblk1/queue/iosched/front_merges
+echo 150 > /sys/block/mmcblk1/queue/iosched/read_expire
+echo 1500 > /sys/block/mmcblk1/queue/iosched/write_expire
+
+log -p i -t viperinit " *** tune deadline ***"
+log -p i -t viperinit " "
+
+log -p i -t viperinit " *** end 90scheduler init.d file ***"
+log -p i -t viperinit " "
+
+log -p i -t viperinit "*** calling cron init.d file ***"
+log -p i -t viperinit " "

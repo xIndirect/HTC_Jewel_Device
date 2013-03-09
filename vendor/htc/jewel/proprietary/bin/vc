@@ -1,0 +1,427 @@
+#!/system/bin/sh
+
+about ()
+{
+	echo
+	echo "Written by -viperboy- on XDA exclusively for"
+	echo "Viper4G! If you need support for our ROM, you can"
+	echo "find us on our website (www.venomroms.com), XDA,"
+	echo "Facebook, and Twitter!"
+	echo
+}
+
+if [ `id | grep -c root` -eq '0' ]; then
+	echo
+	echo -n "Must be run as root! Attempting to run as root..."
+	sleep 2
+	su -c vc
+fi
+
+clear
+
+mount -o remount,rw /system > /dev/null 2>&1
+
+devicecheck=`getprop ro.product.device`
+romcheck=`getprop ro.product.version | grep -ci viper4g`
+kernelcheck=`busybox uname -r`
+mountcheck=`mount | grep -i /system | cut -d " " -f 4 | cut -d , -f 1`
+
+romname=`getprop ro.product.version`
+
+
+mkdir -p /storage/sdcard0/Viper4G/vc_files
+
+export sleepmin=$(cat /system/etc/virtuous_oc/sleep_min_freq)
+export sleepmax=$(cat /system/etc/virtuous_oc/sleep_max_freq)
+export sleepgov=$(cat /system/etc/virtuous_oc/sleep_governor)
+export awakemin=$(cat /system/etc/virtuous_oc/wake_min_freq)
+export awakemax=$(cat /system/etc/virtuous_oc/wake_max_freq)
+export awakegov=$(cat /system/etc/virtuous_oc/wake_governor)
+
+defaultconf=/data/local/dcm/config/default.conf
+export disable_cpu1_screen_off_check=`cat $defaultconf | grep disable_cpu1_screen_off | cut -d = -f 2`
+export min_awake_freq_check=`cat $defaultconf | grep min_awake_freq | cut -d = -f 2`
+export max_awake_freq_check=`cat $defaultconf | grep max_awake_freq | cut -d = -f 2`
+export min_sleep_freq_check=`cat $defaultconf | grep min_sleep_freq | cut -d = -f 2`
+export max_sleep_freq_check=`cat $defaultconf | grep max_sleep_freq | cut -d = -f 2`
+export awake_governor_check=`cat $defaultconf | grep awake_governor | cut -d = -f 2`
+export sleep_governor_check=`cat $defaultconf | grep sleep_governor | cut -d = -f 2`
+
+export scheduler=$(cat /sys/block/mmcblk0/queue/scheduler | cut -d [ -f 2 | cut -d ] -f 1)
+
+ocdaemonsettings ()
+{
+	echo "================================================="
+	export sleepmin=$(cat /system/etc/virtuous_oc/sleep_min_freq)
+	export sleepmax=$(cat /system/etc/virtuous_oc/sleep_max_freq)
+	export sleepgov=$(cat /system/etc/virtuous_oc/sleep_governor)
+	export awakemin=$(cat /system/etc/virtuous_oc/wake_min_freq)
+	export awakemax=$(cat /system/etc/virtuous_oc/wake_max_freq)
+	export awakegov=$(cat /system/etc/virtuous_oc/wake_governor)
+	echo "Awake Governor: $awakegov"
+	echo "Awake Max Freq: $awakemax"
+	echo "Awake Min Freq: $awakemin"
+	echo "============================"
+	echo "Sleep Governor: $sleepgov"
+	echo "Sleep Max Freq: $sleepmax"
+	echo "Sleep Min Freq: $sleepmin"
+	echo "================================================="
+}
+
+viperdaemonsettings ()
+{
+	echo "================================================="
+	export disable_cpu1_screen_off_check=`cat $defaultconf | grep disable_cpu1_screen_off | cut -d = -f 2`
+	export min_awake_freq_check=`cat $defaultconf | grep min_awake_freq | cut -d = -f 2`
+	export max_awake_freq_check=`cat $defaultconf | grep max_awake_freq | cut -d = -f 2`
+	export min_sleep_freq_check=`cat $defaultconf | grep min_sleep_freq | cut -d = -f 2`
+	export max_sleep_freq_check=`cat $defaultconf | grep max_sleep_freq | cut -d = -f 2`
+	export awake_governor_check=`cat $defaultconf | grep awake_governor | cut -d = -f 2`
+	export sleep_governor_check=`cat $defaultconf | grep sleep_governor | cut -d = -f 2`
+	echo -n "Disable CPU1 when Screen Off: "
+	if [ $disable_cpu1_screen_off_check = '1' ]; then
+		echo "Yes"
+	elif [ $disable_cpu1_screen_off_check = '0' ]; then
+		echo "No"
+	else
+		echo "UNKNOWN"
+	fi
+	echo "================================="
+	echo "Awake governor: $awake_governor_check"
+	echo "Max Awake Freq: $max_awake_freq_check"
+	echo "Min Awake Freq: $min_awake_freq_check"
+	echo "========================="
+	echo "Sleep governor: $sleep_governor_check"
+	echo "Max Sleep Freq: $max_sleep_freq_check"
+	echo "Min Sleep Freq: $min_sleep_freq_check"
+	echo "================================================="
+}
+
+pressenter ()
+{
+	echo
+	echo -n "Press Enter to continue..."
+	read key
+}
+
+while [ 1 ]; do
+echo
+echo "          _                 ____   ___  __  __ "
+echo "  __   __(_)_ __   ___ _ __|  _ \ / _ \|  \/  |"
+echo "  \ \ / /| | '_ \ / _ \ '__| |_) | | | | |\/| |"
+echo "   \ \ / | | |_) |  __/ |  |  _ <| |_| | |  | |"
+echo "    \_/  |_| .__/ \___|_|  |_| \_\\\\\___/|_|  |_|"
+echo "           |_|                                 "
+echo "          viperControl v3 for Viper4G          "
+echo "================================================="
+echo "*******************System Info*******************"
+case $mountcheck in
+	rw)
+		echo "/system status: writable!"
+		;;
+	*)
+		echo "/system status: NOT writable!"
+		echo
+		echo "Script must exit!"
+		exit
+		;;
+esac
+case $devicecheck in
+	jewel)
+		echo "Device: HTC EVO 4G LTE"
+		;;
+	*)	echo "Unsupported device! viperControl only works on"
+		echo "an Team Venom Viper4G ROM."
+		echo
+		echo "If you feel this is an error, please PM one of"
+		echo "the Team Venom devs and let them know!"
+		echo
+		exit
+		;;
+esac
+
+case $romcheck in
+	1)
+		echo "ROM: $romname"
+		echo
+		;;
+	*)
+		echo "Only supported on Viper4G!"
+		exit
+		;;
+esac
+cpudaemon=none
+if [ `getprop vc.cpu.control` = '0' ]; then
+	echo "CPU daemons disabled by user"
+	set cpudaemon=disabled
+	cpudaemon=disabled
+elif [ `/system/bin/ps | grep virtuous | wc -l` = '1' ]; then
+	echo "OC Daemon is running!"
+	ocdaemonsettings
+	set cpudaemon=virtuous
+	cpudaemon=virtuous
+elif [ `busybox ps | grep viperDaemon | grep -v grep | wc -l` -ge "1" ]; then
+	echo "viperDaemon is running!"
+	viperdaemonsettings
+	set cpudaemon=viper
+	cpudaemon=viper
+fi
+if [ $cpudaemon = "none" ]; then
+	echo "No CPU daemons running!"	
+	set cpudaemon=none
+	cpudaemon=none
+fi
+echo
+echo "Scheduler: $scheduler"
+echo "*******************System Info*******************"
+echo
+echo "1) Adjust CPU settings"
+echo "2) Voltage Control"
+echo "3) Manage removed viperROM bloat"
+echo "4) Hosts file management"
+echo "5) Fix permissions [for FC issues]"
+echo
+echo "6) Advanced"
+echo
+echo "7) Help and About"
+echo
+echo -n "Please choose an option (Enter to exit): "
+read option
+case $option in
+	1)	if [ $cpudaemon = "virtuous" ]; then
+			occonfig
+		elif [ $cpudaemon = "viper" ]; then
+			dcm
+		elif [ $cpudaemon = "none" ]; then
+			switchcpucontrol
+		elif [ $cpudaemon = "disabled" ]; then
+			echo
+			echo "You have explicitly disabled CPU daemons from running."
+			echo -n "Would you like to enable them? (y/n): "
+			read option
+			case $option in
+				y|Y)	echo
+						echo "Please remember to uninstall any CPU apps, or else the"
+						echo "daemons will not run or will cause issues!"
+						echo
+						pressenter
+						switchcpucontrol
+						;;
+				*)		echo
+						echo "Nothing changed!"
+						pressenter
+						;;
+			esac
+		fi
+		;;
+	2)	vipermod
+		;;
+	3)	apprestorer
+		;;
+	4)	hostsmanager
+		;;
+	5)	echo -n "Fix permissions? (y/n): "
+		read option
+		case $option in
+			y|Y)	fixpermissions
+					echo
+					echo "Fix permissions done!"
+					pressenter
+					;;
+			*)	echo
+					echo "Nothing changed!"
+					pressenter
+					;;
+		esac
+		;;
+	6)	while : ;
+		do
+		FSTWEAK=`getprop vc.filesystem.tweak`
+		if [ $FSTWEAK = '1' ]; then
+			FSTWEAKSTATUS=Enabled
+		elif [ $FSTWEAK = '0' ]; then
+			FSTWEAKSTATUS=Disabled
+		fi
+		CAMERAWAKE=`cat /system/usr/keylayout/keypad_8960.kl | grep 211 | grep -ci wake`
+		if [ $CAMERAWAKE = '1' ]; then
+			CAMERAWAKESTATUS=Enabled
+		elif [ $CAMERAWAKE = '0' ]; then
+			CAMERAWAKESTATUS=Disabled
+		fi
+		FASTDORMANCY=`cat /system/build.prop | grep -cF "#ro.ril.fast.dormancy.rule"`
+		if [ $FASTDORMANCY = '1' ]; then
+			FASTDORMANCYSTATUS=Enabled
+		elif [ $FASTDORMANCY = '0' ]; then
+			FASTDORMANCYSTATUS=Disabled
+		fi
+		ADS=`getprop vc.hosts.blockads`
+		if [ $ADS = '1' ]; then
+			ADSSTATUS=Enabled
+		elif [ $ADS = '0' ]; then
+			ADSSTATUS=Disabled
+		fi
+		echo "================================="
+		echo "             Advanced            "
+		echo "================================="
+		echo "1) CPU control options"
+		echo
+		echo "2) Read cron log"
+		echo
+		echo "3) Read boot log"
+		echo
+		echo "4) Filesystem tweak"
+		echo "   ==> Currently: $FSTWEAKSTATUS"
+		echo 
+		echo "5) Wake phone with Camera button"
+		echo "   ==> Currently: $CAMERAWAKESTATUS"
+		echo
+		echo "6) Change Fast Dormancy"
+		echo "   ==> Currently: $FASTDORMANCYSTATUS"
+		echo
+		echo "7) Block Ads"
+		echo "   ==> Currently: $ADSSTATUS"
+		echo "================================="
+		echo
+		echo -n "Please choose an option (Enter to exit): "
+		read option
+		if [ -z $option ]; then
+			option=e
+		fi
+		case $option in
+			1)	switchcpucontrol
+				;;
+			2)	echo
+				if [ -e /etc/logs/cronjobs ]; then
+					cat /etc/logs/cronjobs | more
+				else
+					echo
+					echo "No cron logs available at the moment. Cron may"
+					echo "not have run yet, please check back later."
+				fi
+				pressenter
+				;;
+			3)	echo
+				if [ -e /system/etc/stats.txt ]; then
+					cat /system/etc/stats.txt
+				else
+					echo
+					echo "No boot log available!"
+				fi
+				pressenter
+				;;
+			4)	if [ $FSTWEAK = '1' ]; then
+					sed -i 's/vc.filesystem.tweak=1/vc.filesystem.tweak=0/g' /system/build.prop
+					echo
+					echo "Filesystem tweak disabled!"
+					echo
+					echo "You must reboot now. Rebooting in 5 sec..."
+					sleep 5
+					busybox reboot -f
+				elif [ $FSTWEAK = '0' ]; then
+					echo
+					echo "This filesystem tweak will enable TRIM and allow storage"
+					echo "blocks to be cleared more frequently. This can increase"
+					echo "performance, but may degrade the life of your internal"
+					echo "storage over time. This can also decrease performance if"
+					echo "your /system, /data, or /cache partition start to get full"
+					echo "(over 75% capacity). Disable this if you feel I/O"
+					echo "performance starts to suffer."
+					echo
+					echo -n "Continue? (y/n): "
+					read option
+					case $option in
+						y|Y) 	sed -i 's/vc.filesystem.tweak=0/vc.filesystem.tweak=1/g' /system/build.prop
+								echo
+								echo "Filesystem tweak enabled!"
+								echo
+								echo "You must reboot now. Rebooting in 5 sec..."
+								sleep 5
+								busybox reboot -f
+								;;
+						*)		echo
+								echo "Nothing changed!"
+								pressenter
+								;;
+					esac
+				fi
+				;;
+			5)	if [ $CAMERAWAKE = '1' ]; then
+					sed -i 's/key 211   FOCUS             WAKE_DROPPED/key 211   FOCUS/g' /system/usr/keylayout/keypad_8960.kl
+					echo
+					echo "Camera wake disabled!"
+					echo
+					echo "You must reboot now. Rebooting in 5 sec..."
+					sleep 5
+					busybox reboot -f
+				elif [ $CAMERAWAKE = '0' ]; then
+					sed -i 's/key 211   FOCUS/key 211   FOCUS             WAKE_DROPPED/g' /system/usr/keylayout/keypad_8960.kl
+					echo
+					echo "Camera wake enabled!"
+					echo
+					echo "You must reboot now. Rebooting in 5 sec..."
+					sleep 5
+					busybox reboot -f
+				fi				
+				;;
+			6)	if [ $FASTDORMANCY = '1' ]; then
+					sed -i 's/#ro.ril.fast.dormancy.rule=0/ro.ril.fast.dormancy.rule=0/g' /system/build.prop
+					echo
+					echo "Fast dormancy disabled!"
+					echo
+					echo "You must reboot now. Rebooting in 5 sec..."
+					sleep 5
+					busybox reboot -f
+				elif [ $FASTDORMANCY = '0' ]; then
+					sed -i 's/ro.ril.fast.dormancy.rule=0/#ro.ril.fast.dormancy.rule=0/g' /system/build.prop
+					echo
+					echo "Fast dormancy enabled!"
+					echo
+					echo "You must reboot now. Rebooting in 5 sec..."
+					sleep 5
+					busybox reboot -f
+				fi
+				;;
+			7)	if [ $ADS = '1' ]; then
+					sed -i 's/vc.hosts.blockads=1/vc.hosts.blockads=0/g' /system/build.prop
+					rm /system/etc/hosts
+					cp /storage/sdcard0/Viper4G/hosts/hosts-stock /system/etc/
+					mv /system/etc/hosts-stock /system/etc/hosts
+					chmod 755 /system/etc/hosts
+					echo
+					echo "Ad blocking disabled!"
+					echo
+					echo "You must reboot now. Rebooting in 5 sec..."
+					sleep 5
+					busybox reboot -f
+				elif [ $ADS = '0' ]; then
+					sed -i 's/vc.hosts.blockads=0/vc.hosts.blockads=1/g' /system/build.prop
+					rm /system/etc/hosts
+					cp /storage/sdcard0/Viper4G/hosts/hosts-adblock /system/etc/
+					mv /system/etc/hosts-adblock /system/etc/hosts
+					chmod 755 /system/etc/hosts
+					echo
+					echo "Ad blocking enabled!"
+					echo
+					echo "You must reboot now. Rebooting in 5 sec..."
+					sleep 5
+					busybox reboot -f
+				fi
+				;;
+			e)	break
+				;;
+			*)	echo "Invalid selection!"
+				pressenter
+				;;
+		esac
+		done
+		;;
+	7)	echo
+		about
+		echo "Enter to continue..."
+		read key
+		;;
+	*)	about
+		exit
+		;;
+esac
+done

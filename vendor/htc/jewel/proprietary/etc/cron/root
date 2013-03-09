@@ -1,0 +1,2 @@
+1 */4 * * * sh /system/bin/cronjob.sh
+00 * * * * /system/bin/uptime > /system/etc/uptime.txt

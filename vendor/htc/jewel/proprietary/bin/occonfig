@@ -1,0 +1,434 @@
+#!/system/bin/sh
+
+availfreq ()
+{
+	if [ -e /sys/devices/system/cpu/cpu0/cpufreq/scaling_available_frequencies ]; then
+		cpufreqarray=(`cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_available_frequencies`)
+		len=${#cpufreqarray[*]}
+		echo
+		echo "There are $len frequencies to choose from!"
+		echo
+		i=0
+		while [ $i -lt $len ]; do
+		echo "$i: ${cpufreqarray[$i]}"
+		let i++
+		done
+		echo
+	else
+		echo "Cannot read list of frequencies! Please let"
+		echo "a Team Venom dev know ASAP!"
+	fi
+}
+
+availgov ()
+{
+	if [ -e /sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors ]; then
+		govarray=(`cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors`)
+		len=${#govarray[*]}
+		echo
+		echo "There are $len governors to choose from!"
+		echo
+		i=0
+		while [ $i -lt $len ]; do
+		echo "$i: ${govarray[$i]}"
+		let i++
+		done
+		echo
+	else
+		echo "Cannot read list of governors! Please let"
+		echo "a Team Venom dev know ASAP!"
+	fi
+}
+
+availsched ()
+{
+	if [ -e /sys/block/mmcblk0/queue/scheduler ]; then
+		schedarray=(`cat /sys/block/mmcblk0/queue/scheduler | tr -d [,]`)
+		len=${#schedarray[*]}
+		echo
+		echo "There are $len schedulers to choose from!"
+		echo
+		i=0
+		while [ $i -lt $len ]; do
+		echo "$i: ${schedarray[$i]}"
+		let i++
+		done
+		echo
+	else
+		echo "Cannot read list of schedulers! Please let"
+		echo "a Team Venom dev know ASAP!"
+	fi
+}
+
+pressenter ()
+{
+	echo
+	echo -n "Press Enter to continue..."
+	read key
+}
+
+while echo
+do
+echo "================================================="
+echo "                  Daemon Config                  "
+echo "================================================="
+echo
+echo "1) Set MIN Awake Freq"
+echo "2) Set MAX Awake Freq"
+echo "3) Set Awake Governor"
+echo "4) Performance toggle"
+echo
+echo "5) Set MIN Sleep Freq"
+echo "6) Set MAX Sleep Freq"
+echo "7) Set Sleep Governor"
+echo
+echo "8) Start virtuous_oc"
+echo "9) Change scheduler"
+echo
+echo -n "Please choose an option (Enter to exit): "
+read option
+case $option in
+	1)	while : ; do
+		echo "Current Awake MIN Freq"
+		echo "======="
+		echo $awakemin
+		echo "======="
+		echo
+		echo "Available Frequencies"
+		echo "========================================"
+		availfreq
+		echo "========================================"
+		echo
+		echo -n "Please choose an option for MIN Awake freq (Enter to exit): "
+		read frequency
+		if [ -z $frequency ]; then
+			echo
+			echo "Nothing changed!"
+			pressenter
+			break
+		fi
+		if [ -z "${cpufreqarray[$frequency]}" ]; then
+			echo "Not a valid selection!"
+			pressenter
+		else
+			echo "Set MIN Awake Freq to ${cpufreqarray[$frequency]}"
+			echo
+			echo "${cpufreqarray[$frequency]}" > /system/etc/virtuous_oc/wake_min_freq
+			echo "Done!"
+			echo
+			echo "Restarting virtuous_oc..."
+			pkill virtuous_oc
+			/system/xbin/virtuous_oc
+			unset awakemin
+			export awakemin=`cat /system/etc/virtuous_oc/wake_min_freq`
+			sleep 1
+			pressenter
+			break
+		fi
+		done
+		;;
+	2)	while : ; do
+		echo "Current Awake MAX Freq"
+		echo "======="
+		echo $awakemax
+		echo "======="
+		echo
+		echo "Available Frequencies"
+		echo "========================================"
+		availfreq
+		echo "========================================"
+		echo
+		echo -n "Please choose an option for MAX Awake freq (Enter to exit): "
+		read frequency
+		if [ -z $frequency ]; then
+			echo
+			echo "Nothing changed!"
+			pressenter
+			break
+		fi
+		if [ -z "${cpufreqarray[$frequency]}" ]; then
+			echo "Not a valid selection!"
+			pressenter
+		else
+			echo "Set MAX Awake Freq to ${cpufreqarray[$frequency]}"
+			echo
+			echo "${cpufreqarray[$frequency]}" > /system/etc/virtuous_oc/wake_max_freq
+			echo "Done!"
+			echo
+			echo "Restarting virtuous_oc..."
+			pkill virtuous_oc
+			/system/xbin/virtuous_oc
+			unset awakemax
+			export awakemax=`cat /system/etc/virtuous_oc/wake_max_freq`
+			sleep 1
+			pressenter
+			break
+		fi
+		done
+		;;
+	3)	while : ; do
+		echo "Current Awake Governor"
+		echo "==========="
+		echo $awakegov
+		echo "==========="
+		echo
+		echo "Available Governors"
+		echo "====================================="
+		availgov
+		echo "====================================="
+		echo
+		echo -n "Please choose an option for Awake governor (Enter to exit): "
+		read wakegov
+		if [ -z $wakegov ]; then
+			echo
+			echo "Nothing changed!"
+			pressenter
+			break
+		fi
+		if [ -z "${govarray[$wakegov]}" ]; then
+			echo "Not a valid selection!"
+			pressenter
+		else
+			echo "Set Awake governor to ${govarray[$wakegov]}"
+			echo
+			echo "${govarray[$wakegov]}" > /system/etc/virtuous_oc/wake_governor
+			echo "Done!"
+			echo
+			echo "Restarting virtuous_oc..."
+			pkill virtuous_oc
+			/system/xbin/virtuous_oc
+			unset awakegov
+			export awakegov=`cat /system/etc/virtuous_oc/wake_governor`
+			sleep 1
+			pressenter
+			break
+		fi
+		done
+		;;
+	4)	if [ `cat /system/etc/virtuous_oc/wake_governor` != 'performance' ]; then
+			echo `cat /system/etc/virtuous_oc/wake_governor` > /system/etc/virtuous_oc/wakegovbackup
+			echo `cat /system/etc/virtuous_oc/wake_max_freq` > /system/etc/virtuous_oc/wakemaxfreqbackup
+			echo "performance" > /system/etc/virtuous_oc/wake_governor
+			echo "Performance governor set!"
+		else
+			wakegovbackup=`cat /system/etc/virtuous_oc/wakegovbackup`
+			wakemaxfreqbackup=`cat /system/etc/virtuous_oc/wakemaxfreqbackup`
+			echo $wakegovbackup > /system/etc/virtuous_oc/wake_governor
+			echo $wakemaxfreqbackup > /system/etc/virtuous_oc/wake_max_freq
+			echo "Toggling back to $wakegovbackup"
+		fi
+		echo
+		echo "Restarting virtuous_oc..."
+		pkill virtuous_oc
+		/system/xbin/virtuous_oc
+		sleep 1
+		pressenter
+		;;
+	5)	while : ; do
+		echo "Current Sleep MIN Freq"
+		echo "======="
+		echo $sleepmin
+		echo "======="
+		echo
+		echo "Available Frequencies"
+		echo "========================================"
+		availfreq
+		echo "========================================"
+		echo
+		echo -n "Please choose an option for MIN Sleep freq (Enter to exit): "
+		read frequency
+		if [ -z $frequency ]; then
+			echo
+			echo "Nothing changed!"
+			pressenter
+			break
+		fi
+		if [ -z "${cpufreqarray[$frequency]}" ]; then
+			echo "Not a valid selection!"
+			pressenter
+		else
+			echo "Set MIN Sleep Freq to ${cpufreqarray[$frequency]}"
+			echo
+			echo "${cpufreqarray[$frequency]}" > /system/etc/virtuous_oc/sleep_min_freq
+			echo "Done!"
+			echo
+			echo "Restarting virtuous_oc..."
+			pkill virtuous_oc
+			/system/xbin/virtuous_oc
+			unset sleepmin
+			export sleepmin=`cat /system/etc/virtuous_oc/sleep_min_freq`
+			sleep 1
+			pressenter
+			break
+		fi
+		done
+		;;
+	6)	while : ; do
+		echo "Current Sleep MAX Freq"
+		echo "======="
+		echo $sleepmax
+		echo "======="
+		echo
+		echo "Available Frequencies"
+		echo "========================================"
+		availfreq
+		echo "========================================"
+		echo
+		echo -n "Please choose an option for MAX Sleep freq (Enter to exit): "
+		read frequency
+		if [ -z $frequency ]; then
+			echo
+			echo "Nothing changed!"
+			pressenter
+			break
+		fi
+		if [ -z "${cpufreqarray[$frequency]}" ]; then
+			echo "Not a valid selection!"
+			pressenter
+		else
+			echo "Set MAX Sleep Freq to ${cpufreqarray[$frequency]}"
+			echo
+			echo "${cpufreqarray[$frequency]}" > /system/etc/virtuous_oc/sleep_max_freq
+			echo "Done!"
+			echo
+			echo "Restarting virtuous_oc..."
+			pkill virtuous_oc
+			/system/xbin/virtuous_oc
+			unset sleepmax
+			export sleepmax=`cat /system/etc/virtuous_oc/sleep_max_freq`
+			sleep 1
+			pressenter
+			break
+		fi
+		done
+		;;
+	7)	while : ; do
+		echo "Current Sleep Governor"
+		echo "==========="
+		echo $sleepgov
+		echo "==========="
+		echo
+		echo "Available Governors"
+		echo "====================================="
+		availgov
+		echo "====================================="
+		echo
+		echo -n "Please choose an option for Sleep governor (Enter to exit): "
+		read sleepgov
+		if [ -z $sleepgov ]; then
+			echo
+			echo "Nothing changed!"
+			pressenter
+			break
+		fi
+		if [ -z "${govarray[$sleepgov]}" ]; then
+			echo "Not a valid selection!"
+			pressenter
+		else
+			echo "Set Sleep governor to ${govarray[$sleepgov]}"
+			echo
+			echo "${govarray[$sleepgov]}" > /system/etc/virtuous_oc/sleep_governor
+			echo "Done!"
+			echo
+			echo "Restarting virtuous_oc..."
+			pkill virtuous_oc
+			/system/xbin/virtuous_oc
+			unset sleepgov
+			export sleepgov=`cat /system/etc/virtuous_oc/sleep_governor`
+			sleep 1
+			pressenter
+			break
+		fi
+		done
+		;;
+	8)	if [ `ps | grep -c virtuous` -ge '1' ]; then
+			echo "Daemon already running!"
+			echo -n "Kill and restart? (Default: y): "
+			read kill
+			if [ -z $kill ]; then
+				kill=y
+			fi
+			case $kill in
+				y|Y)	pkill virtuous_oc
+						/system/xbin/virtuous_oc
+						echo "Daemon killed and restarted!"
+						pressenter
+						;;
+				n|N)	echo "Nothing changed!"
+						pressenter
+						;;
+			esac
+		else
+			/system/xbin/virtuous_oc
+			echo "Daemon started!"
+			pressenter
+		fi
+		;;
+	9)	while : ; do
+		echo "Current Scheduler"
+		scheduler=`cat /sys/block/mmcblk0/queue/scheduler | cut -d [ -f 2 | cut -d ] -f 1`
+		echo "========"
+		echo $scheduler
+		echo "========"
+		echo
+		echo "Available Schedulers"
+		echo "======================================"
+		availsched
+		echo "======================================"
+		echo
+		echo -n "Please choose and option for a scheduler (Enter to exit): "
+		read scheduler
+		if [ -z $scheduler ]; then
+			echo
+			echo "Nothing changed!"
+			pressenter
+			break
+		fi
+		if [ -z "${schedarray[$scheduler]}" ]; then
+			echo "Not a valid selection!"
+			pressenter
+		else
+			echo "${schedarray[$scheduler]}" > /sys/block/mmcblk0/queue/scheduler
+			echo "${schedarray[$scheduler]}" > /sys/block/mmcblk1/queue/scheduler
+			echo "Set scheduler to ${schedarray[$scheduler]}"
+			awk 'BEGIN { print "#!/system/bin/sh\n#created by -viperboy-\n"; }' > /system/etc/init.d/90scheduler
+			echo "echo ${schedarray[$scheduler]} > /sys/block/mmcblk0/queue/scheduler" >> /system/etc/init.d/90scheduler
+			echo "echo ${schedarray[$scheduler]} > /sys/block/mmcblk1/queue/scheduler" >> /system/etc/init.d/90scheduler
+			if [ "${schedarray[$scheduler]}" = "cfq" ]; then
+				echo 0 > /sys/block/mmcblk0/queue/rotational
+				echo 0 > /sys/block/mmcblk1/queue/rotational
+				echo 1 > /sys/block/mmcblk0/queue/iosched/low_latency
+				echo 1 > /sys/block/mmcblk1/queue/iosched/low_latency
+				echo 1 > /sys/block/mmcblk0/queue/iosched/back_seek_penalty
+				echo 1 > /sys/block/mmcblk1/queue/iosched/back_seek_penalty
+				echo 1000000000 > /sys/block/mmcblk0/queue/iosched/back_seek_max
+				echo 1000000000 > /sys/block/mmcblk1/queue/iosched/back_seek_max
+				echo 3 > /sys/block/mmcblk0/queue/iosched/slice_idle
+				echo 3 > /sys/block/mmcblk1/queue/iosched/slice_idle
+				echo
+				echo "Set special tweaks for cfq scheduler!"
+				echo " " >> /system/etc/init.d/90scheduler
+				echo "echo 0 > /sys/block/mmcblk0/queue/rotational" >> /system/etc/init.d/90scheduler
+				echo "echo 0 > /sys/block/mmcblk1/queue/rotational" >> /system/etc/init.d/90scheduler
+				echo "echo 1 > /sys/block/mmcblk0/queue/iosched/low_latency" >> /system/etc/init.d/90scheduler
+				echo "echo 1 > /sys/block/mmcblk1/queue/iosched/low_latency" >> /system/etc/init.d/90scheduler
+				echo "echo 1 > /sys/block/mmcblk0/queue/iosched/back_seek_penalty" >> /system/etc/init.d/90scheduler
+				echo "echo 1 > /sys/block/mmcblk1/queue/iosched/back_seek_penalty" >> /system/etc/init.d/90scheduler
+				echo "echo 1000000000 > /sys/block/mmcblk0/queue/iosched/back_seek_max" >> /system/etc/init.d/90scheduler
+				echo "echo 1000000000 > /sys/block/mmcblk1/queue/iosched/back_seek_max" >> /system/etc/init.d/90scheduler
+				echo "echo 3 > /sys/block/mmcblk0/queue/iosched/slice_idle" >> /system/etc/init.d/90scheduler
+				echo "echo 3 > /sys/block/mmcblk1/queue/iosched/slice_idle" >> /system/etc/init.d/90scheduler
+			fi
+			echo
+			echo "init.d file also created!"
+			unset scheduler
+			export scheduler=`cat /sys/block/mmcblk0/queue/scheduler | cut -d [ -f 2 | cut -d ] -f 1`
+			pressenter
+			break
+		fi
+		done
+		;;		
+	*)	break
+		;;
+esac
+done

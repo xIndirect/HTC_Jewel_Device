@@ -1,0 +1,56 @@
+#!/system/bin/sh
+
+pressenter ()
+{
+	echo
+	echo -n "Press Enter to continue..."
+	read key
+}
+
+while : ; 
+do
+echo "================================================="
+echo "                  Hosts Manager                  "
+echo "================================================="
+echo
+if [ -e /system/etc/hosts ] || [ -e /data/data/hosts ] ; then
+	echo "Hosts file present!"
+	hostfilepresent=1
+else
+	echo "Hosts file not present!"
+	hostfilepresent=0
+fi
+echo
+if [ $hostfilepresent = '1' ]; then
+	echo "1) Delete"
+else
+	echo "1) Restore"
+fi
+echo
+echo -n "Please choose an option (Enter to Exit): "
+read option
+if [ -z $option ]; then
+	option=e
+fi
+echo
+case $option in
+	1)	if [ $hostfilepresent = '1' ]; then
+			rm /system/etc/hosts
+			if [ -e /data/data/hosts ]; then
+				rm /data/data/hosts
+			fi
+			echo "hosts file(s) removed!"
+		else
+			cp /sdcard/Viper4G/hosts /data/data/hosts
+			cp /sdcard/Viper4G/hosts /system/etc/hosts
+			echo "hosts file(s) restored!"
+		fi
+		pressenter
+		;;
+	e)	break
+		;;
+	*)	echo "Invalid option!"
+		pressenter
+		;;
+esac
+done

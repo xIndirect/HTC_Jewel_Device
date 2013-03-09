@@ -1,0 +1,75 @@
+#!/system/bin/sh
+
+DIRPATH=/storage/sdcard0/Viper4G
+
+pressenter ()
+{
+	echo
+	echo -n "Press Enter to continue..."
+	read key
+}
+
+while echo
+do
+echo "================================="
+echo "           App Restorer          "
+echo "================================="
+echo
+echo "1) Restore removed apps"
+echo
+echo -n "Please choose an option (Enter to exit): "
+read option
+if [ -z $option ]; then
+	option=e
+fi
+case $option in
+	1)	while : ;
+		do
+		if [ -e $DIRPATH/removed_apps ]; then
+			removedappsarray=(`ls $DIRPATH/removed_apps`)
+			len=${#removedappsarray[*]}
+			echo
+			echo "There are $len apps available to restore!"
+			echo
+			i=0
+			while [ $i -lt $len ]; do
+			echo "$i: ${removedappsarray[$i]}"
+			let i++
+			done
+			if [ $len = '0' ]; then
+				pressenter
+				exit
+			fi
+			echo
+			echo -n "Please type the number of the app you want to restore: "
+			read option
+			if [ -z $option ]; then
+				echo
+				echo "Nothing changed!"
+				pressenter
+				break
+			fi
+			if [ -z "${removedappsarray[$option]}" ]; then
+				echo "Not a valid selection!"
+				pressenter
+			else
+				cp $DIRPTH/removed_apps/${removedappsarray[$option]} /system/app
+				chmod 644 /system/app/${removedappsarray[$option]}
+				echo
+				echo "${removedappsarray[$option]} restored!"
+				echo
+				echo "Done! You may need to reboot for this app"
+				echo "to show up in the app drawer."
+				pressenter
+				break
+			fi
+		fi
+		done
+		;;
+	e)	break
+		;;
+	*)	echo "Not a valid selection!"
+		pressenter
+		;;
+esac
+done
